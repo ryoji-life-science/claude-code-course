@@ -53,6 +53,9 @@ export default function HTMLManagerV2() {
   const [previewDevice, setPreviewDevice] = useState<string>('mobile');
   const [showPreview, setShowPreview] = useState(true);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
 
   // ローカルストレージからデータを読み込み
   useEffect(() => {
@@ -105,6 +108,7 @@ export default function HTMLManagerV2() {
     setCurrentProduct(product);
     setCurrentVersion('default');
     setHtmlCode(product.html || '');
+    setHasUnsavedChanges(false);
   };
 
   // バージョン変更
@@ -121,31 +125,47 @@ export default function HTMLManagerV2() {
     }
     
     setHtmlCode(code);
+    setHasUnsavedChanges(false);
   };
 
   // HTMLコードを保存
-  const saveHtmlCode = () => {
-    if (!currentProduct) return;
+  const saveHtmlCode = async () => {
+    if (!currentProduct || isSaving) return;
 
-    const updatedProducts = products.map(product => {
-      if (product.id === currentProduct.id) {
-        const updated = { ...product, updatedAt: new Date().toISOString() };
-        
-        if (currentVersion === 'default') {
-          updated.html = htmlCode;
-        } else {
-          if (!updated.versions) updated.versions = {};
-          updated.versions[currentVersion] = htmlCode;
+    setIsSaving(true);
+    
+    try {
+      // 少し遅延を追加して保存プロセスを視覚化
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const updatedProducts = products.map(product => {
+        if (product.id === currentProduct.id) {
+          const updated = { ...product, updatedAt: new Date().toISOString() };
+          
+          if (currentVersion === 'default') {
+            updated.html = htmlCode;
+          } else {
+            if (!updated.versions) updated.versions = {};
+            updated.versions[currentVersion] = htmlCode;
+          }
+          
+          return updated;
         }
-        
-        return updated;
-      }
-      return product;
-    });
+        return product;
+      });
 
-    setProducts(updatedProducts);
-    setCurrentProduct(updatedProducts.find(p => p.id === currentProduct.id) || null);
-    saveToLocalStorage(updatedProducts);
+      setProducts(updatedProducts);
+      setCurrentProduct(updatedProducts.find(p => p.id === currentProduct.id) || null);
+      saveToLocalStorage(updatedProducts);
+      
+      setHasUnsavedChanges(false);
+      setLastSavedTime(new Date());
+      showNotification('保存が完了しました', 'success');
+    } catch (error) {
+      showNotification('保存に失敗しました', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // 商品名を編集
@@ -591,6 +611,20 @@ export default function HTMLManagerV2() {
     return [sampleProduct];
   };
 
+  // HTMLコードの変更検知
+  useEffect(() => {
+    if (!currentProduct) return;
+    
+    let originalCode = '';
+    if (currentVersion === 'default') {
+      originalCode = currentProduct.html || '';
+    } else if (currentProduct.versions && currentProduct.versions[currentVersion]) {
+      originalCode = currentProduct.versions[currentVersion];
+    }
+    
+    setHasUnsavedChanges(htmlCode !== originalCode);
+  }, [htmlCode, currentProduct, currentVersion]);
+
   // リアルタイムプレビュー用のデバウンス処理
   const [debouncedHtmlCode, setDebouncedHtmlCode] = useState(htmlCode);
   
@@ -657,11 +691,21 @@ export default function HTMLManagerV2() {
         <div className="flex items-center space-x-2">
           <button
             onClick={saveHtmlCode}
-            disabled={!currentProduct}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            disabled={!currentProduct || isSaving}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+              hasUnsavedChanges 
+                ? 'bg-orange-600 text-white hover:bg-orange-700 animate-pulse' 
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            } ${isSaving ? 'bg-green-600' : ''}`}
           >
-            <Save size={16} />
-            <span>保存</span>
+            {isSaving ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+            ) : (
+              <Save size={16} />
+            )}
+            <span>
+              {isSaving ? '保存中...' : hasUnsavedChanges ? '保存 (未保存)' : '保存'}
+            </span>
           </button>
           
           <button
@@ -686,39 +730,12 @@ export default function HTMLManagerV2() {
           </button>
 
           <button
-            onClick={createSampleData}
-            className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-            title="サンプル商品データを追加"
-          >
-            <Plus size={16} />
-            <span>サンプル追加</span>
-          </button>
-
-          <button
             onClick={importFromJsonFile}
             className="flex items-center space-x-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
             title="JSONファイル(rms_all_products.json等)からデータをインポート"
           >
             <Import size={16} />
             <span>JSON移行</span>
-          </button>
-
-          <button
-            onClick={importFromOldSystem}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            title="旧システム(sample.html)のlocalStorageからデータをインポート"
-          >
-            <Import size={16} />
-            <span>旧システム移行</span>
-          </button>
-
-          <button
-            onClick={importOldData}
-            className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-            title="HTMLファイルからデータをインポート"
-          >
-            <Import size={16} />
-            <span>HTML移行</span>
           </button>
         </div>
       </header>
@@ -866,8 +883,18 @@ export default function HTMLManagerV2() {
                       </select>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-500">
-                    {htmlCode.length} 文字
+                  <div className="flex flex-col items-end text-xs text-gray-500">
+                    <div>{htmlCode.length} 文字</div>
+                    {lastSavedTime && (
+                      <div className="text-green-600">
+                        最終保存: {lastSavedTime.toLocaleTimeString()}
+                      </div>
+                    )}
+                    {hasUnsavedChanges && (
+                      <div className="text-orange-600 font-medium">
+                        未保存の変更あり
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -876,7 +903,9 @@ export default function HTMLManagerV2() {
                     height="100%"
                     defaultLanguage="html"
                     value={htmlCode}
-                    onChange={(value) => setHtmlCode(value || '')}
+                    onChange={(value) => {
+                      setHtmlCode(value || '');
+                    }}
                     theme="vs-dark"
                     options={{
                       minimap: { enabled: false },
