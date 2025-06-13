@@ -39,7 +39,6 @@ interface PreviewDevice {
 }
 
 const previewDevices: PreviewDevice[] = [
-  { id: 'desktop', name: 'デスクトップ', width: 1200, icon: Monitor },
   { id: 'mobile', name: 'スマホ', width: 375, icon: Smartphone },
 ];
 
@@ -683,7 +682,7 @@ export default function HTMLManagerV2() {
             }`}
           >
             <Eye size={16} />
-            <span>{showPreview ? 'プレビュー表示中' : 'プレビュー非表示'}</span>
+            <span>{showPreview ? 'スマホプレビュー表示中' : 'スマホプレビュー非表示'}</span>
           </button>
 
           <button
@@ -872,7 +871,7 @@ export default function HTMLManagerV2() {
                   </div>
                 </div>
                 
-                <div className="flex-1">
+                <div className="flex-1 overflow-hidden">
                   <MonacoEditor
                     height="100%"
                     defaultLanguage="html"
@@ -886,60 +885,61 @@ export default function HTMLManagerV2() {
                       lineNumbers: 'on',
                       roundedSelection: false,
                       scrollbar: {
-                        vertical: 'visible',
-                        horizontal: 'visible'
+                        vertical: 'auto',
+                        horizontal: 'auto',
+                        verticalScrollbarSize: 14,
+                        horizontalScrollbarSize: 14
                       },
                       automaticLayout: true,
                       formatOnPaste: true,
                       formatOnType: true,
+                      wordWrap: 'on',
+                      wrappingStrategy: 'advanced',
                     }}
                   />
                 </div>
               </div>
 
-              {/* プレビュー */}
+              {/* スマホプレビュー */}
               {showPreview && (
                 <div className="flex-1 flex flex-col bg-white">
                   <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
                     <div className="flex items-center space-x-2">
-                      <Eye size={16} className="text-gray-500" />
-                      <span className="text-sm font-medium text-gray-700">プレビュー</span>
+                      <Smartphone size={16} className="text-gray-500" />
+                      <span className="text-sm font-medium text-gray-700">スマホプレビュー</span>
                     </div>
                     
-                    <div className="flex items-center space-x-2">
-                      {previewDevices.map((device) => {
-                        const IconComponent = device.icon;
-                        return (
-                          <button
-                            key={device.id}
-                            onClick={() => setPreviewDevice(device.id)}
-                            className={`flex items-center space-x-1 px-3 py-1 rounded-md text-xs transition-colors ${
-                              previewDevice === device.id
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'text-gray-600 hover:bg-gray-100'
-                            }`}
-                          >
-                            <IconComponent size={14} />
-                            <span>{device.name}</span>
-                          </button>
-                        );
-                      })}
+                    <div className="text-xs text-gray-500">
+                      375px × 自動
                     </div>
                   </div>
                   
-                  <div className="flex-1 overflow-auto bg-gray-100 p-4">
-                    <div 
-                      className="mx-auto bg-white rounded-lg shadow-lg overflow-hidden"
-                      style={{ 
-                        width: `${currentPreviewDevice.width}px`,
-                        maxWidth: '100%',
-                        minHeight: '400px'
-                      }}
-                    >
-                      <div
-                        dangerouslySetInnerHTML={{ __html: debouncedHtmlCode }}
-                        className="p-4"
-                      />
+                  <div className="flex-1 overflow-auto bg-gray-200 p-6" style={{ minHeight: 0 }}>
+                    <div className="mx-auto relative">
+                      {/* スマホフレーム */}
+                      <div 
+                        className="bg-black rounded-3xl p-3 shadow-2xl"
+                        style={{ width: '395px' }}
+                      >
+                        {/* スマホ画面 */}
+                        <div 
+                          className="bg-white rounded-2xl overflow-auto"
+                          style={{ 
+                            width: '375px',
+                            height: '600px',
+                            maxHeight: '80vh'
+                          }}
+                        >
+                          <div
+                            dangerouslySetInnerHTML={{ __html: debouncedHtmlCode }}
+                            style={{
+                              width: '100%',
+                              fontSize: '14px',
+                              lineHeight: '1.4'
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
