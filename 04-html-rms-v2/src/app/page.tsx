@@ -429,22 +429,80 @@ export default function HTMLManagerV2() {
     input.click();
   };
 
-  // 旧HTML形式から商品データを抽出
-  const extractProductsFromOldHTML = (html: string): Product[] => {
-    // localStorageからのデータ抽出を試行
-    const match = html.match(/localStorage\.getItem\(['"](.*?)['"]\)/);
-    if (match) {
-      // 実際のlocalStorageデータがある場合の処理
-      // ここでは簡易的に新しい商品を作成
-      const sampleProduct: Product = {
-        id: `imported-${Date.now()}`,
-        name: '旧システムからインポートされた商品',
-        html: '<div>\n  <h1>インポートされたHTMLコード</h1>\n  <p>旧システムからのデータです</p>\n</div>',
-        createdAt: new Date().toISOString(),
-      };
-      return [sampleProduct];
+  // 旧システムのlocalStorageデータを直接インポート
+  const importFromOldSystem = () => {
+    // 旧システムのlocalStorageキー名
+    const oldDataKey = 'rmsHtmlData';
+    
+    try {
+      // 旧システムのデータを取得
+      const oldData = localStorage.getItem(oldDataKey);
+      
+      let importedProducts: Product[] = [];
+      let importCount = 0;
+      
+      if (oldData) {
+        const parsedData = JSON.parse(oldData);
+        if (Array.isArray(parsedData)) {
+          // 旧システムの商品データを新システム形式に変換
+          importedProducts = parsedData.map((oldProduct: any) => ({
+            id: oldProduct.id,
+            name: oldProduct.name || `商品 ${oldProduct.id}`,
+            html: oldProduct.html || '',
+            versions: oldProduct.versions || {},
+            createdAt: oldProduct.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }));
+          importCount += importedProducts.length;
+        }
+      }
+      
+      if (importedProducts.length > 0) {
+        // 重複チェック（IDが既に存在する場合は上書き確認）
+        const existingIds = products.map(p => p.id);
+        const duplicates = importedProducts.filter(p => existingIds.includes(p.id));
+        
+        if (duplicates.length > 0) {
+          const confirmed = confirm(`${duplicates.length}件の商品が既に存在します。上書きしますか？`);
+          if (!confirmed) {
+            showNotification('インポートがキャンセルされました', 'error');
+            return;
+          }
+        }
+        
+        // 既存データとマージ
+        const mergedProducts = [...products];
+        importedProducts.forEach(importedProduct => {
+          const existingIndex = mergedProducts.findIndex(p => p.id === importedProduct.id);
+          if (existingIndex !== -1) {
+            mergedProducts[existingIndex] = importedProduct;
+          } else {
+            mergedProducts.push(importedProduct);
+          }
+        });
+        
+        setProducts(mergedProducts);
+        saveToLocalStorage(mergedProducts);
+        showNotification(`${importCount}件の商品データをインポートしました`);
+      } else {
+        showNotification('旧システムのデータが見つかりませんでした。\\n\\n手順:\\n1. 旧システム（sample.html）をブラウザで開く\\n2. 商品データが表示されることを確認\\n3. 新システムで「旧システム移行」ボタンをクリック', 'error');
+      }
+    } catch (error) {
+      console.error('データインポートエラー:', error);
+      showNotification('データの読み込みに失敗しました', 'error');
     }
-    return [];
+  };
+
+  // 旧HTML形式から商品データを抽出（ファイルアップロード用）
+  const extractProductsFromOldHTML = (html: string): Product[] => {
+    // ファイルから直接HTMLを読み込む場合の処理
+    const sampleProduct: Product = {
+      id: `imported-${Date.now()}`,
+      name: '旧システムからインポートされた商品',
+      html: html.includes('table') ? html : '<div>\\n  <h1>インポートされたHTMLコード</h1>\\n  <p>旧システムからのデータです</p>\\n</div>',
+      createdAt: new Date().toISOString(),
+    };
+    return [sampleProduct];
   };
 
   // リアルタイムプレビュー用のデバウンス処理
@@ -551,12 +609,21 @@ export default function HTMLManagerV2() {
           </button>
 
           <button
-            onClick={importOldData}
-            className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-            title="旧システムからデータをインポート"
+            onClick={importFromOldSystem}
+            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            title="旧システム(sample.html)のlocalStorageからデータをインポート"
           >
             <Import size={16} />
-            <span>データ移行</span>
+            <span>旧システム移行</span>
+          </button>
+
+          <button
+            onClick={importOldData}
+            className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+            title="ファイルからデータをインポート"
+          >
+            <Import size={16} />
+            <span>ファイル移行</span>
           </button>
         </div>
       </header>
