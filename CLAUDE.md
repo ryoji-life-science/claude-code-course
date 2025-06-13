@@ -75,3 +75,11 @@ Development server runs on `http://localhost:3000` by default.
 ## Project Naming Convention
 
 New projects should follow the format: `0X-project-name/` where X is the next sequential number.
+
+## Git Workflow
+
+Refer to `GIT_WORKFLOW.md` for detailed Git operation guidelines. Key reminders:
+- Commit immediately after implementing any feature
+- Push at the end of each work session
+- Use descriptive commit messages in Japanese
+- Follow the established commit message templates
