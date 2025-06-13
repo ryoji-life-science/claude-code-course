@@ -397,25 +397,112 @@ export default function HTMLManagerV2() {
     showNotification(`${sampleProducts.length}件のサンプル商品データを追加しました`);
   };
 
-  // 旧システムデータをインポート
-  const importOldData = () => {
+  // JSONファイルからデータをインポート
+  const importFromJsonFile = () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.html';
+    input.accept = '.json';
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         const reader = new FileReader();
         reader.onload = (event) => {
           const content = event.target?.result as string;
-          // sample.htmlの形式から商品データを抽出する簡易パーサー
           try {
-            const products = extractProductsFromOldHTML(content);
-            if (products.length > 0) {
-              const updatedProducts = [...products, ...products];
+            const data = JSON.parse(content);
+            let importedProducts: Product[] = [];
+            
+            // 旧システムのJSONデータ形式を判定・変換
+            if (Array.isArray(data)) {
+              // 直接配列の場合（rms_all_products.json形式）
+              importedProducts = convertOldProductData(data);
+            } else if (data.products && Array.isArray(data.products)) {
+              // products配列が含まれている場合
+              importedProducts = convertOldProductData(data.products);
+            } else if (data.version && data.products) {
+              // システムバックアップ形式の場合
+              importedProducts = convertOldProductData(data.products);
+            } else {
+              // 単一商品の場合
+              importedProducts = [convertSingleProduct(data)];
+            }
+            
+            if (importedProducts.length > 0) {
+              // 重複チェック
+              const existingIds = products.map(p => p.id);
+              const duplicates = importedProducts.filter(p => existingIds.includes(p.id));
+              
+              if (duplicates.length > 0) {
+                const confirmed = confirm(`${duplicates.length}件の商品が既に存在します。上書きしますか？`);
+                if (!confirmed) {
+                  showNotification('インポートがキャンセルされました', 'error');
+                  return;
+                }
+              }
+              
+              // データのマージ
+              const mergedProducts = [...products];
+              importedProducts.forEach(importedProduct => {
+                const existingIndex = mergedProducts.findIndex(p => p.id === importedProduct.id);
+                if (existingIndex !== -1) {
+                  mergedProducts[existingIndex] = importedProduct;
+                } else {
+                  mergedProducts.push(importedProduct);
+                }
+              });
+              
+              setProducts(mergedProducts);
+              saveToLocalStorage(mergedProducts);
+              showNotification(`${importedProducts.length}件の商品データをインポートしました`);
+            } else {
+              showNotification('有効な商品データが見つかりませんでした', 'error');
+            }
+          } catch (error) {
+            console.error('JSON解析エラー:', error);
+            showNotification('JSONファイルの解析に失敗しました。正しい形式のファイルか確認してください。', 'error');
+          }
+        };
+        reader.readAsText(file, 'UTF-8');
+      }
+    };
+    input.click();
+  };
+
+  // 旧システムの商品データを新形式に変換
+  const convertOldProductData = (oldProducts: any[]): Product[] => {
+    return oldProducts.map(oldProduct => convertSingleProduct(oldProduct));
+  };
+
+  // 単一の旧商品データを新形式に変換
+  const convertSingleProduct = (oldProduct: any): Product => {
+    return {
+      id: oldProduct.id || `product-${Date.now()}`,
+      name: oldProduct.name || `商品 ${oldProduct.id}`,
+      html: oldProduct.html || '',
+      versions: oldProduct.versions || {},
+      createdAt: oldProduct.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+  };
+
+  // HTMLファイルからデータをインポート
+  const importOldData = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.html,.htm';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const content = event.target?.result as string;
+          try {
+            const importedProducts = extractProductsFromOldHTML(content);
+            if (importedProducts.length > 0) {
+              const updatedProducts = [...products, ...importedProducts];
               setProducts(updatedProducts);
               saveToLocalStorage(updatedProducts);
-              showNotification(`${products.length}件の商品データをインポートしました`);
+              showNotification(`${importedProducts.length}件の商品データをインポートしました`);
             } else {
               showNotification('有効な商品データが見つかりませんでした', 'error');
             }
@@ -609,6 +696,15 @@ export default function HTMLManagerV2() {
           </button>
 
           <button
+            onClick={importFromJsonFile}
+            className="flex items-center space-x-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
+            title="JSONファイル(rms_all_products.json等)からデータをインポート"
+          >
+            <Import size={16} />
+            <span>JSON移行</span>
+          </button>
+
+          <button
             onClick={importFromOldSystem}
             className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             title="旧システム(sample.html)のlocalStorageからデータをインポート"
@@ -620,10 +716,10 @@ export default function HTMLManagerV2() {
           <button
             onClick={importOldData}
             className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-            title="ファイルからデータをインポート"
+            title="HTMLファイルからデータをインポート"
           >
             <Import size={16} />
-            <span>ファイル移行</span>
+            <span>HTML移行</span>
           </button>
         </div>
       </header>
