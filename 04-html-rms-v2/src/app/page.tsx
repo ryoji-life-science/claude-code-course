@@ -105,12 +105,20 @@ export default function HTMLManagerV2() {
   const selectProduct = (product: Product) => {
     setCurrentProduct(product);
     setCurrentVersion('default');
+    setHtmlCode(product.html || '');
+  };
+
+  // バージョン変更
+  const handleVersionChange = (version: string) => {
+    if (!currentProduct) return;
+    
+    setCurrentVersion(version);
     
     let code = '';
-    if (currentVersion === 'default') {
-      code = product.html;
-    } else if (product.versions && product.versions[currentVersion]) {
-      code = product.versions[currentVersion];
+    if (version === 'default') {
+      code = currentProduct.html || '';
+    } else if (currentProduct.versions && currentProduct.versions[version]) {
+      code = currentProduct.versions[version];
     }
     
     setHtmlCode(code);
@@ -184,6 +192,209 @@ export default function HTMLManagerV2() {
     }).catch(() => {
       showNotification('コピーに失敗しました', 'error');
     });
+  };
+
+  // サンプルデータを作成
+  const createSampleData = () => {
+    const sampleProducts: Product[] = [
+      {
+        id: 'product-001',
+        name: '楽天商品ページ - メイン商品',
+        html: `<div style="max-width: 800px; margin: 0 auto; font-family: 'Hiragino Sans', 'Meiryo', sans-serif;">
+  <!-- ヘッダー部分 -->
+  <div style="background: linear-gradient(135deg, #ff6b6b, #ff8e8e); padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
+    <h1 style="color: white; font-size: 28px; margin: 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
+      🌟 特別セール商品 🌟
+    </h1>
+    <p style="color: white; font-size: 16px; margin: 10px 0 0 0;">
+      期間限定！今だけの特別価格でご提供
+    </p>
+  </div>
+
+  <!-- 商品画像エリア -->
+  <div style="background: white; padding: 20px; text-align: center;">
+    <div style="background: #f8f9fa; border: 2px dashed #dee2e6; padding: 40px; margin-bottom: 20px; border-radius: 8px;">
+      <p style="color: #6c757d; font-size: 18px; margin: 0;">
+        📷 商品画像をここに配置
+      </p>
+    </div>
+  </div>
+
+  <!-- 商品説明 -->
+  <div style="background: white; padding: 20px;">
+    <h2 style="color: #333; border-bottom: 3px solid #ff6b6b; padding-bottom: 10px; margin-bottom: 20px;">
+      商品の特徴
+    </h2>
+    <ul style="line-height: 1.8; color: #555; font-size: 16px;">
+      <li>✅ 高品質な素材を使用</li>
+      <li>✅ 安心の国内製造</li>
+      <li>✅ 365日保証付き</li>
+      <li>✅ 送料無料でお届け</li>
+    </ul>
+  </div>
+
+  <!-- 価格情報 -->
+  <div style="background: #fff8e1; padding: 20px; border: 2px solid #ffc107; border-radius: 8px; margin: 20px 0;">
+    <div style="text-align: center;">
+      <p style="font-size: 14px; color: #666; margin: 0;">通常価格</p>
+      <p style="font-size: 20px; color: #999; text-decoration: line-through; margin: 5px 0;">¥9,800</p>
+      <p style="font-size: 32px; color: #d32f2f; font-weight: bold; margin: 10px 0;">¥6,800</p>
+      <p style="font-size: 16px; color: #ff5722; font-weight: bold; margin: 0;">
+        🔥 30%OFF 特別価格！
+      </p>
+    </div>
+  </div>
+
+  <!-- フッター -->
+  <div style="background: #333; color: white; padding: 20px; text-align: center; border-radius: 0 0 10px 10px;">
+    <p style="margin: 0; font-size: 14px;">
+      ご不明な点がございましたら、お気軽にお問い合わせください
+    </p>
+  </div>
+</div>`,
+        versions: {
+          'sale': `<div style="max-width: 800px; margin: 0 auto; font-family: 'Hiragino Sans', 'Meiryo', sans-serif;">
+  <!-- 緊急セール用ヘッダー -->
+  <div style="background: linear-gradient(135deg, #e53e3e, #ff6b6b); padding: 20px; text-align: center; border-radius: 10px 10px 0 0; position: relative; overflow: hidden;">
+    <div style="position: absolute; top: -10px; right: -10px; background: #ffd700; color: #d32f2f; font-weight: bold; padding: 5px 30px; transform: rotate(45deg); font-size: 12px;">
+      SALE
+    </div>
+    <h1 style="color: white; font-size: 32px; margin: 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">
+      🚨 緊急セール開催中！ 🚨
+    </h1>
+    <p style="color: #ffeb3b; font-size: 18px; margin: 10px 0 0 0; font-weight: bold;">
+      残り時間わずか！お見逃しなく！
+    </p>
+  </div>
+
+  <!-- カウントダウンタイマー風 -->
+  <div style="background: #1a1a1a; color: #ff6b6b; padding: 15px; text-align: center; font-family: monospace;">
+    <p style="margin: 0; font-size: 18px; font-weight: bold;">
+      ⏰ セール終了まで: 2日 14時間 32分 ⏰
+    </p>
+  </div>
+
+  <!-- 超特価情報 -->
+  <div style="background: linear-gradient(135deg, #ff1744, #d32f2f); color: white; padding: 25px; text-align: center; margin: 20px 0; border-radius: 8px;">
+    <h2 style="margin: 0 0 10px 0; font-size: 28px;">💥 超特価 💥</h2>
+    <p style="font-size: 16px; margin: 0 0 15px 0; opacity: 0.9;">通常価格 ¥9,800 から</p>
+    <p style="font-size: 48px; font-weight: bold; margin: 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
+      ¥4,980
+    </p>
+    <p style="font-size: 20px; margin: 10px 0 0 0; color: #ffeb3b;">
+      🎯 49%OFF！
+    </p>
+  </div>
+</div>`
+        },
+        createdAt: '2024-06-01T09:00:00.000Z',
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 'product-002', 
+        name: 'スマートフォン対応ページ',
+        html: `<div style="max-width: 100%; margin: 0 auto; font-family: 'Hiragino Sans', 'Meiryo', sans-serif;">
+  <!-- モバイルヘッダー -->
+  <div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 15px; text-align: center;">
+    <h1 style="color: white; font-size: 22px; margin: 0; line-height: 1.3;">
+      📱 スマホ最適化商品
+    </h1>
+  </div>
+
+  <!-- 商品カード -->
+  <div style="background: white; margin: 10px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div style="background: #f8f9fa; padding: 30px; text-align: center; border-radius: 6px; margin-bottom: 15px;">
+      <p style="color: #6c757d; margin: 0; font-size: 16px;">📷 商品画像</p>
+    </div>
+    
+    <h2 style="color: #333; font-size: 18px; margin: 0 0 10px 0;">スマートフォン向け商品</h2>
+    <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 0 0 15px 0;">
+      この商品はスマートフォンでの表示を最適化しています。タップしやすいボタンとわかりやすいレイアウトが特徴です。
+    </p>
+    
+    <!-- 価格 -->
+    <div style="background: #e8f5e8; padding: 15px; border-radius: 6px; text-align: center;">
+      <p style="font-size: 24px; color: #2e7d32; font-weight: bold; margin: 0;">¥3,980</p>
+      <p style="font-size: 12px; color: #666; margin: 5px 0 0 0;">税込・送料無料</p>
+    </div>
+  </div>
+</div>`,
+        createdAt: '2024-06-05T14:30:00.000Z',
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 'product-003',
+        name: 'ファッション・アパレル商品',
+        html: `<div style="max-width: 800px; margin: 0 auto; background: white; font-family: 'Hiragino Sans', 'Meiryo', sans-serif;">
+  <!-- ファッションヘッダー -->
+  <div style="background: linear-gradient(135deg, #2c3e50, #34495e); color: white; padding: 30px; text-align: center;">
+    <h1 style="margin: 0; font-size: 32px; letter-spacing: 2px; font-weight: 300;">
+      FASHION COLLECTION
+    </h1>
+    <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.8;">
+      新作アイテムが続々登場
+    </p>
+  </div>
+
+  <!-- 商品詳細 -->
+  <div style="padding: 20px;">
+    <h2 style="color: #2c3e50; margin: 0 0 15px 0; font-size: 24px;">
+      プレミアム コットン Tシャツ
+    </h2>
+    
+    <!-- サイズ選択 -->
+    <div style="margin-bottom: 20px;">
+      <p style="color: #333; font-weight: bold; margin: 0 0 10px 0;">サイズ選択:</p>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <div style="border: 2px solid #dee2e6; padding: 8px 16px; border-radius: 4px;">S</div>
+        <div style="border: 2px solid #007bff; background: #007bff; color: white; padding: 8px 16px; border-radius: 4px;">M</div>
+        <div style="border: 2px solid #dee2e6; padding: 8px 16px; border-radius: 4px;">L</div>
+        <div style="border: 2px solid #dee2e6; padding: 8px 16px; border-radius: 4px;">XL</div>
+      </div>
+    </div>
+
+    <!-- 価格と購入 -->
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center;">
+      <p style="font-size: 28px; color: #dc3545; font-weight: bold; margin: 0 0 10px 0;">¥2,980</p>
+      <p style="color: #666; font-size: 14px; margin: 0 0 15px 0;">税込・送料別</p>
+    </div>
+  </div>
+</div>`,
+        versions: {
+          'winter': `<div style="max-width: 800px; margin: 0 auto; background: linear-gradient(135deg, #e3f2fd, #bbdefb); font-family: 'Hiragino Sans', 'Meiryo', sans-serif;">
+  <!-- 冬季限定ヘッダー -->
+  <div style="background: linear-gradient(135deg, #1565c0, #0d47a1); color: white; padding: 30px; text-align: center;">
+    <h1 style="margin: 0; font-size: 32px; letter-spacing: 2px; font-weight: 300;">
+      ❄️ WINTER COLLECTION ❄️
+    </h1>
+    <p style="margin: 10px 0 0 0; font-size: 16px; color: #e3f2fd;">
+      暖かくて快適な冬のアイテム
+    </p>
+  </div>
+
+  <div style="padding: 30px; background: white; margin: 0 20px; border-radius: 12px; margin-top: -10px;">
+    <h2 style="color: #1565c0; margin: 0 0 20px 0; font-size: 24px; text-align: center;">
+      🧥 冬季限定 プレミアム ニット
+    </h2>
+    
+    <!-- 冬季特価 -->
+    <div style="background: linear-gradient(135deg, #1565c0, #1976d2); color: white; padding: 25px; border-radius: 8px; text-align: center;">
+      <p style="font-size: 16px; margin: 0 0 10px 0; opacity: 0.9;">❄️ 冬季限定価格 ❄️</p>
+      <p style="font-size: 36px; font-weight: bold; margin: 0;">¥4,980</p>
+      <p style="font-size: 14px; margin: 10px 0 0 0; color: #e3f2fd;">通常価格 ¥7,980 から 37%OFF</p>
+    </div>
+  </div>
+</div>`
+        },
+        createdAt: '2024-06-10T11:15:00.000Z',
+        updatedAt: new Date().toISOString()
+      }
+    ];
+
+    const updatedProducts = [...products, ...sampleProducts];
+    setProducts(updatedProducts);
+    saveToLocalStorage(updatedProducts);
+    showNotification(`${sampleProducts.length}件のサンプル商品データを追加しました`);
   };
 
   // 旧システムデータをインポート
@@ -331,6 +542,15 @@ export default function HTMLManagerV2() {
           </button>
 
           <button
+            onClick={createSampleData}
+            className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            title="サンプル商品データを追加"
+          >
+            <Plus size={16} />
+            <span>サンプル追加</span>
+          </button>
+
+          <button
             onClick={importOldData}
             className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
             title="旧システムからデータをインポート"
@@ -463,9 +683,26 @@ export default function HTMLManagerV2() {
               {/* エディタ */}
               <div className="flex-1 flex flex-col bg-white border-r border-gray-200">
                 <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
-                  <div className="flex items-center space-x-2">
-                    <Code size={16} className="text-gray-500" />
-                    <span className="text-sm font-medium text-gray-700">HTMLエディタ</span>
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <Code size={16} className="text-gray-500" />
+                      <span className="text-sm font-medium text-gray-700">HTMLエディタ</span>
+                    </div>
+                    
+                    {/* バージョン選択 */}
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-500">バージョン:</span>
+                      <select
+                        value={currentVersion}
+                        onChange={(e) => handleVersionChange(e.target.value)}
+                        className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                      >
+                        <option value="default">標準</option>
+                        {currentProduct?.versions && Object.keys(currentProduct.versions).map(version => (
+                          <option key={version} value={version}>{version}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                   <div className="text-xs text-gray-500">
                     {htmlCode.length} 文字
