@@ -1,0 +1,1880 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>楽天RMS HTMLコード管理システム</title>
+    
+    <!-- CodeMirror CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/theme/monokai.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/addon/lint/lint.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/addon/fold/foldgutter.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/addon/scroll/simplescrollbars.min.css">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        header {
+            background-color: #bf0000;
+            color: white;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .app-title {
+            font-size: 1.4rem;
+            font-weight: bold;
+        }
+        
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-primary {
+            background-color: #0078d4;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background-color: #e0e0e0;
+            color: #333;
+        }
+        
+        .btn-success {
+            background-color: #107c10;
+            color: white;
+        }
+        
+        .btn-danger {
+            background-color: #d83b01;
+            color: white;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+        }
+        
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            width: 280px;
+            background-color: #f0f0f0;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .sidebar-header {
+            padding: 1rem;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .sidebar-header > div:last-child {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .trash-icon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3 6 5 6 21 6'%3E%3C/polyline%3E%3Cpath d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        
+        .search-container {
+            padding: 0.5rem 1rem;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        #search-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .product-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem 0;
+        }
+        
+        .product-item {
+            padding: 0.8rem 1rem;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s;
+        }
+        
+        .product-deleted-at {
+            font-size: 0.8rem;
+            color: #d83b01;
+            margin-bottom: 4px;
+        }
+        
+        .product-item:hover {
+            background-color: #e6f2ff;
+        }
+        
+        .product-item.active {
+            background-color: #cce5ff;
+            border-left: 4px solid #0078d4;
+        }
+        
+        .product-id {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        
+        .product-name {
+            font-size: 0.85rem;
+            color: #666;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .toolbar {
+            padding: 0.5rem 1rem;
+            background-color: #f8f8f8;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .version-selector {
+            padding: 0.5rem 1rem;
+            background-color: #f0f0f0;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        #version-select {
+            flex: 1;
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .editor-preview-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #ddd;
+        }
+        
+        .editor-header {
+            padding: 0.5rem 1rem;
+            background-color: #f0f0f0;
+            border-bottom: 1px solid #ddd;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 0.85rem;
+        }
+        
+        .copy-icon {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            margin-right: 4px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='13' height='13' rx='2' ry='2'%3E%3C/rect%3E%3Cpath d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center;
+            vertical-align: middle;
+        }
+        
+        /* CodeMirror custom styles */
+        .CodeMirror {
+            flex: 1;
+            height: 100%;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            overflow: auto !important;
+        }
+        
+        #codemirror-editor {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+            flex: 1;
+        }
+        
+        .cm-error {
+            background-color: rgba(255, 0, 0, 0.1);
+            border-bottom: 1px dotted red;
+        }
+        
+        /* Hide the original textarea */
+        #html-editor {
+            display: none;
+        }
+        
+        .editor-status {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+            background-color: #f0f0f0;
+            border-top: 1px solid #ddd;
+            color: #666;
+        }
+        
+        .preview-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .preview-header {
+            padding: 0.5rem 1rem;
+            background-color: #f0f0f0;
+            border-bottom: 1px solid #ddd;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .preview-content {
+            flex: 1;
+            padding: 1rem;
+            overflow: auto;
+            background-color: white;
+        }
+        
+        #html-preview {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 4px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90%;
+            overflow: auto;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .modal-header {
+            padding: 1rem;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f8f8f8;
+        }
+        
+        .modal-title {
+            font-weight: 500;
+            font-size: 1.2rem;
+        }
+        
+        .close-button {
+            cursor: pointer;
+            font-size: 1.5rem;
+            line-height: 1;
+            color: #777;
+        }
+        
+        .modal-body {
+            padding: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .form-textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+            height: 200px;
+            resize: vertical;
+        }
+        
+        .form-check {
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .form-check-input {
+            margin-right: 8px;
+        }
+        
+        .form-check-label {
+            font-weight: normal;
+        }
+        
+        .modal-footer {
+            padding: 1rem;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            background-color: #f8f8f8;
+        }
+        
+        .status-bar {
+            padding: 0.5rem 1rem;
+            background-color: #f0f0f0;
+            border-top: 1px solid #ddd;
+            font-size: 0.9rem;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        /* スマホのプレビューを想定したスタイル */
+        .smartphone-frame {
+            margin: 0 auto;
+            width: 320px;
+            height: 100%;
+            border: 10px solid #333;
+            border-radius: 20px;
+            overflow: auto;
+            background-color: white;
+        }
+        
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 1rem;
+            background-color: #333;
+            color: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1001;
+            display: none;
+            animation: fadeInOut 3s forwards;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        
+        /* レスポンシブ対応 */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: 200px;
+            }
+            
+            .editor-preview-container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="app-title">楽天RMS HTMLコード管理システム</div>
+        <div class="header-buttons">
+            <button id="import-btn" class="btn btn-secondary">インポート</button>
+            <button id="export-btn" class="btn btn-secondary">エクスポート</button>
+            <button id="save-all-btn" class="btn btn-primary">すべて保存</button>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div>商品一覧</div>
+                <div>
+                    <button id="trash-btn" class="btn btn-secondary btn-sm" title="ゴミ箱を表示"><i class="trash-icon"></i></button>
+                    <button id="add-product-btn" class="btn btn-primary">追加</button>
+                </div>
+            </div>
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="商品IDで検索...">
+            </div>
+            <div id="product-list" class="product-list">
+                <!-- 商品リストがここに表示されます -->
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="toolbar">
+                <button id="save-btn" class="btn btn-success" disabled>保存</button>
+                <button id="delete-btn" class="btn btn-danger" disabled>ゴミ箱へ移動</button>
+                <button id="restore-btn" class="btn btn-primary" style="display: none;">復元</button>
+                <button id="permanent-delete-btn" class="btn btn-danger" style="display: none;">完全に削除</button>
+            </div>
+            
+            <div class="version-selector">
+                <label for="version-select">バージョン:</label>
+                <select id="version-select" disabled>
+                    <option value="default">標準</option>
+                    <option value="sale">セール</option>
+                </select>
+                <button id="add-version-btn" class="btn btn-secondary" disabled>追加</button>
+                <button id="delete-version-btn" class="btn btn-danger btn-sm" disabled>バージョン削除</button>
+            </div>
+            
+            <div class="editor-preview-container">
+                <div class="editor-container">
+                    <div class="editor-header">
+                        <span>HTMLエディタ</span>
+                        <button id="copy-html-btn" class="btn btn-secondary btn-sm" title="HTMLをコピー"><i class="copy-icon"></i>コピー</button>
+                    </div>
+                    <!-- The textarea is kept for compatibility but hidden -->
+                    <textarea id="html-editor" placeholder="HTMLコードを入力してください..." disabled></textarea>
+                    <!-- CodeMirror will be initialized here -->
+                    <div id="codemirror-editor"></div>
+                    <div class="editor-status" id="editor-status">行: 1, 列: 1</div>
+                </div>
+                
+                <div class="preview-container">
+                    <div class="preview-header">
+                        <div>プレビュー（スマートフォン表示）</div>
+                        <button id="refresh-preview-btn" class="btn btn-secondary" disabled>更新</button>
+                    </div>
+                    <div class="preview-content">
+                        <div class="smartphone-frame">
+                            <div id="html-preview"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="status-bar">
+                <div id="status-message">準備完了</div>
+                <div id="last-saved">最終保存: -</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 商品追加モーダル -->
+    <div id="add-product-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">商品追加</div>
+                <span class="close-button">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="product-id" class="form-label">商品ID</label>
+                    <input type="text" id="product-id" class="form-input" placeholder="商品IDを入力してください">
+                </div>
+                <div class="form-group">
+                    <label for="product-name" class="form-label">商品名</label>
+                    <input type="text" id="product-name" class="form-input" placeholder="商品名を入力してください">
+                </div>
+                <div class="form-group">
+                    <label for="product-html" class="form-label">HTMLコード</label>
+                    <textarea id="product-html" class="form-textarea" placeholder="HTMLコードを入力してください"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-add-btn" class="btn btn-secondary">キャンセル</button>
+                <button id="confirm-add-btn" class="btn btn-primary">追加</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- バージョン追加モーダル -->
+    <div id="add-version-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">バージョン追加</div>
+                <span class="close-button">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="version-name" class="form-label">バージョン名</label>
+                    <input type="text" id="version-name" class="form-input" placeholder="例: セール、特集など">
+                </div>
+                <div class="form-group">
+                    <label for="version-html" class="form-label">HTMLコード</label>
+                    <textarea id="version-html" class="form-textarea" placeholder="HTMLコードを入力してください"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-version-btn" class="btn btn-secondary">キャンセル</button>
+                <button id="confirm-version-btn" class="btn btn-primary">追加</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- インポートモーダル -->
+    <div id="import-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">データのインポート</div>
+                <span class="close-button">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="import-type" class="form-label">インポート種別</label>
+                    <select id="import-type" class="form-input">
+                        <option value="single-product">単一商品</option>
+                        <option value="system-data">システムデータ (バックアップから復元)</option>
+                    </select>
+                </div>
+                
+                <!-- 単一商品のインポート設定 -->
+                <div id="single-product-import-container">
+                    <div class="form-group">
+                        <label for="import-method" class="form-label">インポート方法</label>
+                        <select id="import-method" class="form-input">
+                            <option value="text">テキスト入力</option>
+                            <option value="file">ファイル選択</option>
+                        </select>
+                    </div>
+                    <div id="text-import-container" class="form-group">
+                        <label for="import-text" class="form-label">HTMLコード</label>
+                        <textarea id="import-text" class="form-textarea" placeholder="HTMLコードを入力してください"></textarea>
+                    </div>
+                    <div id="file-import-container" class="form-group" style="display: none;">
+                        <label for="import-file" class="form-label">HTMLファイル</label>
+                        <input type="file" id="import-file" class="form-input" accept=".html,.htm,.json">
+                    </div>
+                    <div class="form-group">
+                        <label for="import-product-id" class="form-label">商品ID</label>
+                        <input type="text" id="import-product-id" class="form-input" placeholder="商品IDを入力してください">
+                    </div>
+                    <div class="form-group">
+                        <label for="import-product-name" class="form-label">商品名</label>
+                        <input type="text" id="import-product-name" class="form-input" placeholder="商品名を入力してください">
+                    </div>
+                    <div class="form-group">
+                        <label for="import-version" class="form-label">バージョン</label>
+                        <select id="import-version" class="form-input">
+                            <option value="default">標準</option>
+                            <option value="sale">セール</option>
+                            <option value="new">新規バージョン...</option>
+                        </select>
+                    </div>
+                    <div id="new-version-container" class="form-group" style="display: none;">
+                        <label for="new-version-name" class="form-label">新規バージョン名</label>
+                        <input type="text" id="new-version-name" class="form-input" placeholder="例: セール、特集など">
+                    </div>
+                </div>
+                
+                <!-- システムデータのインポート設定 -->
+                <div id="system-data-import-container" style="display: none;">
+                    <div class="form-group">
+                        <label for="system-import-file" class="form-label">システムデータファイル</label>
+                        <input type="file" id="system-import-file" class="form-input" accept=".json">
+                    </div>
+                    <div class="form-group">
+                        <label for="import-mode" class="form-label">インポートモード</label>
+                        <select id="import-mode" class="form-input">
+                            <option value="replace">既存データを置き換え</option>
+                            <option value="merge">既存データとマージ (重複する商品IDは上書き)</option>
+                            <option value="merge-keep">既存データとマージ (重複する商品IDは保持)</option>
+                        </select>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="import-trash-data" class="form-check-input" checked>
+                        <label for="import-trash-data" class="form-check-label">ゴミ箱データも復元する</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-import-btn" class="btn btn-secondary">キャンセル</button>
+                <button id="confirm-import-btn" class="btn btn-primary">インポート</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- エクスポートモーダル -->
+    <div id="export-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">データのエクスポート</div>
+                <span class="close-button">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="export-type" class="form-label">エクスポート対象</label>
+                    <select id="export-type" class="form-input">
+                        <option value="current">現在選択中のHTML</option>
+                        <option value="all">すべての商品データ</option>
+                        <option value="system">システム全体のデータ (バックアップ用)</option>
+                    </select>
+                </div>
+                <div id="export-format-container" class="form-group">
+                    <label for="export-format" class="form-label">エクスポート形式</label>
+                    <select id="export-format" class="form-input">
+                        <option value="html">HTML</option>
+                        <option value="json">JSON</option>
+                    </select>
+                </div>
+                <div id="export-result-container" class="form-group" style="display: none;">
+                    <label for="export-result" class="form-label">エクスポート結果</label>
+                    <textarea id="export-result" class="form-textarea" readonly></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="copy-export-btn" class="btn btn-secondary" style="display: none;">コピー</button>
+                <button id="download-export-btn" class="btn btn-primary" style="display: none;">ダウンロード</button>
+                <button id="cancel-export-btn" class="btn btn-secondary">キャンセル</button>
+                <button id="confirm-export-btn" class="btn btn-primary">エクスポート</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 通知 -->
+    <div id="notification" class="notification"></div>
+    
+    <!-- CodeMirror JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/addon/edit/closetag.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/addon/edit/matchtags.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/addon/fold/xml-fold.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/addon/hint/show-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/addon/hint/html-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/addon/lint/lint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/addon/fold/foldcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/addon/fold/foldgutter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/addon/scroll/simplescrollbars.min.js"></script>
+    
+    <script>
+        (function() {
+            // データモデル
+            let products = [];
+            let trashProducts = []; // ゴミ箱に移動した商品
+            let currentProductId = null;
+            let currentVersion = 'default';
+            let isEdited = false;
+            let codeMirror = null;
+            let showingTrash = false; // ゴミ箱表示モード
+            let restoreBtn, permanentDeleteBtn;
+            
+            // DOM要素
+            let productList, htmlEditor, htmlPreview, versionSelect, saveBtn, deleteBtn, saveAllBtn, 
+                addProductBtn, addVersionBtn, refreshPreviewBtn, searchInput, statusMessage, lastSaved,
+                importBtn, exportBtn, editorStatus;
+            
+            // モーダル要素
+            let addProductModal, addVersionModal, importModal, exportModal, notification;
+            
+            document.addEventListener('DOMContentLoaded', function() {
+                // DOM要素の取得
+                productList = document.getElementById('product-list');
+                htmlEditor = document.getElementById('html-editor');
+                htmlPreview = document.getElementById('html-preview');
+                versionSelect = document.getElementById('version-select');
+                saveBtn = document.getElementById('save-btn');
+                deleteBtn = document.getElementById('delete-btn');
+                saveAllBtn = document.getElementById('save-all-btn');
+                addProductBtn = document.getElementById('add-product-btn');
+                addVersionBtn = document.getElementById('add-version-btn');
+                refreshPreviewBtn = document.getElementById('refresh-preview-btn');
+                searchInput = document.getElementById('search-input');
+                statusMessage = document.getElementById('status-message');
+                lastSaved = document.getElementById('last-saved');
+                importBtn = document.getElementById('import-btn');
+                exportBtn = document.getElementById('export-btn');
+                editorStatus = document.getElementById('editor-status');
+                
+                // モーダル要素
+                addProductModal = document.getElementById('add-product-modal');
+                addVersionModal = document.getElementById('add-version-modal');
+                importModal = document.getElementById('import-modal');
+                exportModal = document.getElementById('export-modal');
+                notification = document.getElementById('notification');
+                
+                // CodeMirrorの初期化
+                initCodeMirror();
+                
+                // モーダルのクローズボタン
+                const closeButtons = document.querySelectorAll('.close-button');
+                closeButtons.forEach(button => {
+                    button.addEventListener('click', function() {
+                        this.closest('.modal').style.display = 'none';
+                    });
+                });
+                
+                // 初期データのロード
+                loadData();
+                
+                // イベントリスナー
+                saveBtn.addEventListener('click', saveCurrentHTML);
+                deleteBtn.addEventListener('click', moveToTrash);
+                restoreBtn = document.getElementById('restore-btn');
+                restoreBtn.addEventListener('click', restoreFromTrash);
+                permanentDeleteBtn = document.getElementById('permanent-delete-btn');
+                permanentDeleteBtn.addEventListener('click', permanentDeleteProduct);
+                document.getElementById('trash-btn').addEventListener('click', toggleTrashView);
+                saveAllBtn.addEventListener('click', saveAllData);
+                addProductBtn.addEventListener('click', showAddProductModal);
+                addVersionBtn.addEventListener('click', showAddVersionModal);
+                document.getElementById('delete-version-btn').addEventListener('click', deleteCurrentVersion);
+                refreshPreviewBtn.addEventListener('click', updatePreview);
+                searchInput.addEventListener('input', filterProducts);
+                importBtn.addEventListener('click', showImportModal);
+                exportBtn.addEventListener('click', showExportModal);
+                document.getElementById('copy-html-btn').addEventListener('click', copyHTMLCode);
+                
+                // バージョン選択変更時
+                versionSelect.addEventListener('change', function() {
+                    if (isEdited) {
+                        if (confirm('変更内容が保存されていません。保存しますか？')) {
+                            saveCurrentHTML();
+                        }
+                    }
+                    
+                    currentVersion = this.value;
+                    loadCurrentProductHTML();
+                    updateUIState();
+                });
+                
+                // 商品追加モーダルのボタン
+                document.getElementById('cancel-add-btn').addEventListener('click', function() {
+                    addProductModal.style.display = 'none';
+                });
+                
+                document.getElementById('confirm-add-btn').addEventListener('click', addNewProduct);
+                
+                // バージョン追加モーダルのボタン
+                document.getElementById('cancel-version-btn').addEventListener('click', function() {
+                    addVersionModal.style.display = 'none';
+                });
+                
+                document.getElementById('confirm-version-btn').addEventListener('click', addNewVersion);
+                
+                // インポートモーダルの設定
+                document.getElementById('import-type').addEventListener('change', function() {
+                    const singleProductContainer = document.getElementById('single-product-import-container');
+                    const systemDataContainer = document.getElementById('system-data-import-container');
+                    
+                    if (this.value === 'single-product') {
+                        singleProductContainer.style.display = 'block';
+                        systemDataContainer.style.display = 'none';
+                    } else {
+                        singleProductContainer.style.display = 'none';
+                        systemDataContainer.style.display = 'block';
+                    }
+                });
+                
+                document.getElementById('import-method').addEventListener('change', function() {
+                    document.getElementById('text-import-container').style.display = this.value === 'text' ? 'block' : 'none';
+                    document.getElementById('file-import-container').style.display = this.value === 'file' ? 'block' : 'none';
+                });
+                
+                document.getElementById('import-version').addEventListener('change', function() {
+                    document.getElementById('new-version-container').style.display = this.value === 'new' ? 'block' : 'none';
+                });
+                
+                document.getElementById('cancel-import-btn').addEventListener('click', function() {
+                    importModal.style.display = 'none';
+                });
+                
+                document.getElementById('confirm-import-btn').addEventListener('click', importHTML);
+                
+                // エクスポートモーダルの設定
+                document.getElementById('export-type').addEventListener('change', function() {
+                    const formatContainer = document.getElementById('export-format-container');
+                    const formatSelect = document.getElementById('export-format');
+                    
+                    if (this.value === 'current') {
+                        formatContainer.style.display = 'block';
+                        // innerHTML に直接HTMLを代入せず、オプション要素を作成して追加
+                        while (formatSelect.firstChild) {
+                            formatSelect.removeChild(formatSelect.firstChild);
+                        }
+                        
+                        const htmlOption = document.createElement('option');
+                        htmlOption.value = 'html';
+                        htmlOption.textContent = 'HTML';
+                        formatSelect.appendChild(htmlOption);
+                        
+                        const jsonOption = document.createElement('option');
+                        jsonOption.value = 'json';
+                        jsonOption.textContent = 'JSON';
+                        formatSelect.appendChild(jsonOption);
+                        
+                        formatSelect.value = 'html';
+                    } else if (this.value === 'all' || this.value === 'system') {
+                        formatContainer.style.display = 'block';
+                        
+                        while (formatSelect.firstChild) {
+                            formatSelect.removeChild(formatSelect.firstChild);
+                        }
+                        
+                        const jsonOption = document.createElement('option');
+                        jsonOption.value = 'json';
+                        jsonOption.textContent = 'JSON';
+                        formatSelect.appendChild(jsonOption);
+                        
+                        formatSelect.value = 'json';
+                    }
+                });
+                
+                document.getElementById('cancel-export-btn').addEventListener('click', function() {
+                    exportModal.style.display = 'none';
+                });
+                
+                document.getElementById('confirm-export-btn').addEventListener('click', exportHTML);
+                document.getElementById('copy-export-btn').addEventListener('click', copyExportResult);
+                document.getElementById('download-export-btn').addEventListener('click', downloadExportResult);
+                
+                // CodeMirrorの初期化
+                function initCodeMirror() {
+                    codeMirror = CodeMirror(document.getElementById('codemirror-editor'), {
+                        mode: 'htmlmixed',
+                        theme: 'monokai',
+                        lineNumbers: true,
+                        autoCloseTags: true,
+                        autoCloseBrackets: true,
+                        matchTags: {bothTags: true},
+                        extraKeys: {"Ctrl-Space": "autocomplete"},
+                        foldGutter: true,
+                        gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+                        highlightSelectionMatches: true,
+                        indentUnit: 2,
+                        tabSize: 2,
+                        indentWithTabs: false,
+                        lineWrapping: true,
+                        readOnly: true, // 初期状態は読み取り専用
+                        scrollbarStyle: 'native', // スクロールバーのスタイルを明示的に指定
+                        viewportMargin: Infinity // スクロールを改善するための設定
+                    });
+                    
+                    // カーソル位置の変更を監視
+                    codeMirror.on('cursorActivity', function() {
+                        const cursor = codeMirror.getCursor();
+                        editorStatus.textContent = '行: ' + (cursor.line + 1) + ', 列: ' + (cursor.ch + 1);
+                    });
+                    
+                    // 内容変更時のイベント
+                    codeMirror.on('change', function() {
+                        isEdited = true;
+                        updateUIState();
+                        // 元のtextareaにも値をコピー（互換性のため）
+                        htmlEditor.value = codeMirror.getValue();
+                    });
+                }
+                
+                // ファイルからデータを読み込む際のエンコーディング処理
+                function readFileAsUTF8(file, callback) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        callback(e.target.result);
+                    };
+                    reader.readAsText(file, 'UTF-8');
+                }
+                
+                // テキストのエンコーディングチェック
+                function ensureUTF8(text) {
+                    try {
+                        // テキストを一度UTF-8としてエンコード/デコードして文字化け対策
+                        return decodeURIComponent(encodeURIComponent(text));
+                    } catch (e) {
+                        console.error('テキストのエンコーディング変換に失敗しました:', e);
+                        return text;
+                    }
+                }
+                
+                // データをロード
+                function loadData() {
+                    const savedData = localStorage.getItem('rmsHtmlData');
+                    const trashData = localStorage.getItem('rmsHtmlTrashData');
+                    
+                    if (savedData) {
+                        try {
+                            products = JSON.parse(savedData);
+                            renderProductList();
+                            showNotification('データをロードしました');
+                        } catch (e) {
+                            console.error('データの読み込みに失敗しました:', e);
+                            showNotification('データの読み込みに失敗しました', true);
+                        }
+                    }
+                    
+                    if (trashData) {
+                        try {
+                            trashProducts = JSON.parse(trashData);
+                        } catch (e) {
+                            console.error('ゴミ箱データの読み込みに失敗しました:', e);
+                            trashProducts = [];
+                        }
+                    }
+                }
+                
+                // 商品リストの表示
+                function renderProductList() {
+                    productList.innerHTML = '';
+                    
+                    const displayProducts = showingTrash ? trashProducts : products;
+                    
+                    if (displayProducts.length === 0) {
+                        const emptyMessage = document.createElement('div');
+                        emptyMessage.className = 'product-item';
+                        emptyMessage.textContent = showingTrash ? 'ゴミ箱は空です' : '商品が登録されていません';
+                        productList.appendChild(emptyMessage);
+                        return;
+                    }
+                    
+                    displayProducts.forEach(product => {
+                        const productItem = document.createElement('div');
+                        productItem.className = 'product-item';
+                        if (product.id === currentProductId) {
+                            productItem.classList.add('active');
+                        }
+                        
+                        const productIdElement = document.createElement('div');
+                        productIdElement.className = 'product-id';
+                        productIdElement.textContent = product.id;
+                        
+                        const productNameElement = document.createElement('div');
+                        productNameElement.className = 'product-name';
+                        productNameElement.textContent = product.name;
+                        
+                        if (showingTrash) {
+                            const deletedAtElement = document.createElement('div');
+                            deletedAtElement.className = 'product-deleted-at';
+                            const deletedDate = new Date(product.deletedAt);
+                            deletedAtElement.textContent = '削除: ' + deletedDate.toLocaleString();
+                            productItem.appendChild(deletedAtElement);
+                        }
+                        
+                        productItem.appendChild(productIdElement);
+                        productItem.appendChild(productNameElement);
+                        
+                        productItem.addEventListener('click', function() {
+                            if (isEdited) {
+                                if (confirm('変更内容が保存されていません。保存しますか？')) {
+                                    saveCurrentHTML();
+                                }
+                            }
+                            
+                            currentProductId = product.id;
+                            currentVersion = 'default';
+                            versionSelect.value = currentVersion;
+                            loadCurrentProductHTML();
+                            updateUIState();
+                            
+                            // アクティブスタイルの更新
+                            document.querySelectorAll('.product-item').forEach(item => {
+                                item.classList.remove('active');
+                            });
+                            this.classList.add('active');
+                        });
+                        
+                        productList.appendChild(productItem);
+                    });
+                }
+                
+                // 現在の商品のHTMLを読み込む
+                function loadCurrentProductHTML() {
+                    if (!currentProductId) {
+                        codeMirror.setValue('');
+                        htmlEditor.value = '';
+                        htmlPreview.innerHTML = '';
+                        isEdited = false;
+                        return;
+                    }
+                    
+                    const productList = showingTrash ? trashProducts : products;
+                    const product = productList.find(p => p.id === currentProductId);
+                    if (!product) {
+                        return;
+                    }
+                    
+                    // バージョン選択肢の更新
+                    updateVersionOptions(product);
+                    
+                    // HTMLの読み込み
+                    let htmlContent = '';
+                    if (product.versions && product.versions[currentVersion]) {
+                        htmlContent = ensureUTF8(product.versions[currentVersion]);
+                    } else if (currentVersion === 'default') {
+                        htmlContent = ensureUTF8(product.html || '');
+                    }
+                    
+                    // CodeMirrorとtextareaに設定
+                    codeMirror.setValue(htmlContent);
+                    htmlEditor.value = htmlContent;
+                    
+                    // プレビューの更新
+                    updatePreview();
+                    isEdited = false;
+                    
+                    // 編集モードに設定（ゴミ箱内のアイテムは読み取り専用）
+                    codeMirror.setOption('readOnly', showingTrash);
+                }
+                
+                // バージョン選択肢の更新
+                function updateVersionOptions(product) {
+                    versionSelect.innerHTML = '';
+                    
+                    // デフォルトバージョン
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = 'default';
+                    defaultOption.textContent = '標準';
+                    versionSelect.appendChild(defaultOption);
+                    
+                    // 追加バージョン
+                    if (product.versions) {
+                        Object.keys(product.versions).forEach(version => {
+                            if (version !== 'default') {
+                                const option = document.createElement('option');
+                                option.value = version;
+                                option.textContent = version;
+                                versionSelect.appendChild(option);
+                            }
+                        });
+                    }
+                    
+                    versionSelect.value = currentVersion;
+                }
+                
+                // プレビューの更新
+                function updatePreview() {
+                    htmlPreview.innerHTML = codeMirror.getValue();
+                }
+                
+                // 現在のHTMLを保存
+                function saveCurrentHTML() {
+                    if (!currentProductId) {
+                        return;
+                    }
+                    
+                    const productIndex = products.findIndex(p => p.id === currentProductId);
+                    if (productIndex === -1) {
+                        return;
+                    }
+                    
+                    const htmlContent = codeMirror.getValue();
+                    
+                    if (currentVersion === 'default') {
+                        products[productIndex].html = htmlContent;
+                    } else {
+                        if (!products[productIndex].versions) {
+                            products[productIndex].versions = {};
+                        }
+                        products[productIndex].versions[currentVersion] = htmlContent;
+                    }
+                    
+                    saveAllData();
+                    isEdited = false;
+                    updateUIState();
+                    showNotification('保存しました');
+                }
+                
+                // すべてのデータを保存
+                function saveAllData() {
+                    try {
+                        localStorage.setItem('rmsHtmlData', JSON.stringify(products));
+                        localStorage.setItem('rmsHtmlTrashData', JSON.stringify(trashProducts));
+                        const now = new Date();
+                        lastSaved.textContent = '最終保存: ' + now.toLocaleString();
+                        statusMessage.textContent = '保存完了';
+                        showNotification('すべてのデータを保存しました');
+                    } catch (e) {
+                        console.error('データの保存に失敗しました:', e);
+                        statusMessage.textContent = 'エラー: データの保存に失敗しました';
+                        showNotification('データの保存に失敗しました', true);
+                    }
+                }
+                
+                // HTMLコードをコピー
+                function copyHTMLCode() {
+                    if (!currentProductId) {
+                        showNotification('コピーするHTMLがありません', true);
+                        return;
+                    }
+                    
+                    const htmlContent = codeMirror.getValue();
+                    
+                    // クリップボードへのコピー処理
+                    const tempTextarea = document.createElement('textarea');
+                    tempTextarea.value = htmlContent;
+                    document.body.appendChild(tempTextarea);
+                    tempTextarea.select();
+                    
+                    try {
+                        const successful = document.execCommand('copy');
+                        if (successful) {
+                            showNotification('HTMLコードをクリップボードにコピーしました');
+                        } else {
+                            showNotification('コピーに失敗しました', true);
+                        }
+                    } catch (err) {
+                        showNotification('コピーに失敗しました: ' + err, true);
+                    } finally {
+                        document.body.removeChild(tempTextarea);
+                    }
+                    
+                    // Modern Clipboard API (execCommandがdeprecatedのため)を使用した代替方法
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(htmlContent)
+                            .then(() => {
+                                showNotification('HTMLコードをクリップボードにコピーしました');
+                            })
+                            .catch(err => {
+                                // すでにexecCommandでフォールバック対応しているので、ここでは何もしない
+                            });
+                    }
+                }
+                
+                // 商品をゴミ箱に移動
+                function moveToTrash() {
+                    if (!currentProductId) {
+                        return;
+                    }
+                    
+                    if (!confirm('商品ID: ' + currentProductId + ' をゴミ箱に移動してもよろしいですか？')) {
+                        return;
+                    }
+                    
+                    const productIndex = products.findIndex(p => p.id === currentProductId);
+                    if (productIndex !== -1) {
+                        const product = products.splice(productIndex, 1)[0];
+                        product.deletedAt = new Date().toISOString();
+                        trashProducts.push(product);
+                        saveAllData();
+                        
+                        currentProductId = null;
+                        currentVersion = 'default';
+                        codeMirror.setValue('');
+                        htmlEditor.value = '';
+                        htmlPreview.innerHTML = '';
+                        renderProductList();
+                        updateUIState();
+                        showNotification('商品をゴミ箱に移動しました');
+                    }
+                }
+                
+                // ゴミ箱から商品を復元
+                function restoreFromTrash() {
+                    if (!currentProductId) {
+                        return;
+                    }
+                    
+                    const productIndex = trashProducts.findIndex(p => p.id === currentProductId);
+                    if (productIndex !== -1) {
+                        const product = trashProducts.splice(productIndex, 1)[0];
+                        // 削除日時を削除
+                        delete product.deletedAt;
+                        
+                        // 同じIDの商品が既に存在するか確認
+                        if (products.some(p => p.id === product.id)) {
+                            if (confirm('商品ID: ' + product.id + ' は既に存在します。復元商品の商品IDを変更しますか？')) {
+                                product.id = prompt('新しい商品IDを入力してください:', product.id + '_restored');
+                                if (!product.id) {
+                                    showNotification('復元がキャンセルされました');
+                                    return;
+                                }
+                            } else {
+                                showNotification('復元がキャンセルされました');
+                                return;
+                            }
+                        }
+                        
+                        products.push(product);
+                        saveAllData();
+                        
+                        // ゴミ箱表示を更新
+                        renderProductList();
+                        currentProductId = null;
+                        updateUIState();
+                        showNotification('商品を復元しました');
+                    }
+                }
+                
+                // 商品を完全に削除
+                function permanentDeleteProduct() {
+                    if (!currentProductId) {
+                        return;
+                    }
+                    
+                    if (!confirm('商品ID: ' + currentProductId + ' を完全に削除してもよろしいですか？\nこの操作は元に戻せません。')) {
+                        return;
+                    }
+                    
+                    const productIndex = trashProducts.findIndex(p => p.id === currentProductId);
+                    if (productIndex !== -1) {
+                        trashProducts.splice(productIndex, 1);
+                        saveAllData();
+                        
+                        currentProductId = null;
+                        currentVersion = 'default';
+                        codeMirror.setValue('');
+                        htmlEditor.value = '';
+                        htmlPreview.innerHTML = '';
+                        renderProductList();
+                        updateUIState();
+                        showNotification('商品を完全に削除しました');
+                    }
+                }
+                
+                // ゴミ箱表示の切り替え
+                function toggleTrashView() {
+                    if (isEdited) {
+                        if (confirm('変更内容が保存されていません。保存しますか？')) {
+                            saveCurrentHTML();
+                        }
+                    }
+                    
+                    showingTrash = !showingTrash;
+                    currentProductId = null;
+                    currentVersion = 'default';
+                    codeMirror.setValue('');
+                    htmlEditor.value = '';
+                    htmlPreview.innerHTML = '';
+                    
+                    const trashBtn = document.getElementById('trash-btn');
+                    document.getElementById('add-product-btn').style.display = showingTrash ? 'none' : '';
+                    trashBtn.title = showingTrash ? '商品一覧に戻る' : 'ゴミ箱を表示';
+                    trashBtn.classList.toggle('active', showingTrash);
+                    
+                    // 商品表示の更新
+                    renderProductList();
+                    updateUIState();
+                }
+                
+                // 現在のバージョンを削除
+                function deleteCurrentVersion() {
+                    if (!currentProductId || currentVersion === 'default') {
+                        showNotification('標準バージョンは削除できません', true);
+                        return;
+                    }
+                    
+                    if (!confirm('バージョン \'' + currentVersion + '\' を削除してもよろしいですか？')) {
+                        return;
+                    }
+                    
+                    const productIndex = products.findIndex(p => p.id === currentProductId);
+                    if (productIndex !== -1 && products[productIndex].versions) {
+                        delete products[productIndex].versions[currentVersion];
+                        
+                        // バージョンが空になった場合はオブジェクト自体を削除
+                        if (Object.keys(products[productIndex].versions).length === 0) {
+                            delete products[productIndex].versions;
+                        }
+                        
+                        saveAllData();
+                        
+                        currentVersion = 'default';
+                        versionSelect.value = currentVersion;
+                        loadCurrentProductHTML();
+                        updateUIState();
+                        showNotification('バージョン \'' + currentVersion + '\' を削除しました');
+                    }
+                }
+                
+                // 商品追加モーダルを表示
+                function showAddProductModal() {
+                    document.getElementById('product-id').value = '';
+                    document.getElementById('product-name').value = '';
+                    document.getElementById('product-html').value = '';
+                    addProductModal.style.display = 'flex';
+                }
+                
+                // 新しい商品を追加
+                function addNewProduct() {
+                    const productId = document.getElementById('product-id').value.trim();
+                    const productName = document.getElementById('product-name').value.trim();
+                    const productHtml = document.getElementById('product-html').value;
+                    
+                    if (!productId) {
+                        alert('商品IDを入力してください');
+                        return;
+                    }
+                    
+                    if (products.some(p => p.id === productId)) {
+                        alert('この商品IDは既に存在します');
+                        return;
+                    }
+                    
+                    const newProduct = {
+                        id: productId,
+                        name: productName,
+                        html: productHtml,
+                        createdAt: new Date().toISOString()
+                    };
+                    
+                    products.push(newProduct);
+                    saveAllData();
+                    
+                    currentProductId = productId;
+                    currentVersion = 'default';
+                    renderProductList();
+                    loadCurrentProductHTML();
+                    updateUIState();
+                    
+                    addProductModal.style.display = 'none';
+                    showNotification('商品を追加しました');
+                }
+                
+                // バージョン追加モーダルを表示
+                function showAddVersionModal() {
+                    document.getElementById('version-name').value = '';
+                    document.getElementById('version-html').value = codeMirror.getValue();
+                    addVersionModal.style.display = 'flex';
+                }
+                
+                // 新しいバージョンを追加
+                function addNewVersion() {
+                    const versionName = document.getElementById('version-name').value.trim();
+                    const versionHtml = document.getElementById('version-html').value;
+                    
+                    if (!versionName) {
+                        alert('バージョン名を入力してください');
+                        return;
+                    }
+                    
+                    if (!currentProductId) {
+                        return;
+                    }
+                    
+                    const productIndex = products.findIndex(p => p.id === currentProductId);
+                    if (productIndex === -1) {
+                        return;
+                    }
+                    
+                    if (!products[productIndex].versions) {
+                        products[productIndex].versions = {};
+                    }
+                    
+                    if (products[productIndex].versions[versionName]) {
+                        if (!confirm('バージョン "' + versionName + '" は既に存在します。上書きしますか？')) {
+                            return;
+                        }
+                    }
+                    
+                    products[productIndex].versions[versionName] = versionHtml;
+                    saveAllData();
+                    
+                    currentVersion = versionName;
+                    loadCurrentProductHTML();
+                    updateUIState();
+                    
+                    addVersionModal.style.display = 'none';
+                    showNotification('バージョン "' + versionName + '" を追加しました');
+                }
+                
+                // 商品一覧をフィルタリング
+                function filterProducts() {
+                    const searchTerm = searchInput.value.toLowerCase();
+                    const items = productList.querySelectorAll('.product-item');
+                    
+                    items.forEach(item => {
+                        const productId = item.querySelector('.product-id').textContent.toLowerCase();
+                        if (productId.includes(searchTerm)) {
+                            item.style.display = '';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                }
+                
+                // インポートモーダルを表示
+                function showImportModal() {
+                    document.getElementById('import-type').value = 'single-product';
+                    document.getElementById('import-method').value = 'text';
+                    document.getElementById('single-product-import-container').style.display = 'block';
+                    document.getElementById('system-data-import-container').style.display = 'none';
+                    document.getElementById('text-import-container').style.display = 'block';
+                    document.getElementById('file-import-container').style.display = 'none';
+                    document.getElementById('import-text').value = '';
+                    document.getElementById('import-file').value = '';
+                    document.getElementById('system-import-file').value = '';
+                    document.getElementById('import-product-id').value = '';
+                    document.getElementById('import-product-name').value = '';
+                    document.getElementById('import-version').value = 'default';
+                    document.getElementById('new-version-container').style.display = 'none';
+                    document.getElementById('new-version-name').value = '';
+                    document.getElementById('import-mode').value = 'replace';
+                    document.getElementById('import-trash-data').checked = true;
+                    
+                    importModal.style.display = 'flex';
+                }
+                
+                // HTML をインポート
+                function importHTML() {
+                    const importType = document.getElementById('import-type').value;
+                    
+                    if (importType === 'single-product') {
+                        importSingleProduct();
+                    } else {
+                        importSystemData();
+                    }
+                }
+                
+                // 単一商品をインポート
+                function importSingleProduct() {
+                    const importMethod = document.getElementById('import-method').value;
+                    const productId = document.getElementById('import-product-id').value.trim();
+                    const productName = document.getElementById('import-product-name').value.trim();
+                    const version = document.getElementById('import-version').value;
+                    let html = '';
+                    
+                    if (!productId) {
+                        alert('商品IDを入力してください');
+                        return;
+                    }
+                    
+                    if (importMethod === 'text') {
+                        html = document.getElementById('import-text').value;
+                        processImport(productId, productName, version, html);
+                    } else {
+                        const fileInput = document.getElementById('import-file');
+                        if (!fileInput.files.length) {
+                            alert('ファイルを選択してください');
+                            return;
+                        }
+                        
+                        const file = fileInput.files[0];
+                        readFileAsUTF8(file, function(content) {
+                            html = content;
+                            processImport(productId, productName, version, html);
+                        });
+                    }
+                }
+                
+                // システムデータをインポート
+                function importSystemData() {
+                    const fileInput = document.getElementById('system-import-file');
+                    if (!fileInput.files.length) {
+                        alert('システムデータファイルを選択してください');
+                        return;
+                    }
+                    
+                    const file = fileInput.files[0];
+                    readFileAsUTF8(file, function(content) {
+                        try {
+                            const systemData = JSON.parse(content);
+                            const importMode = document.getElementById('import-mode').value;
+                            const importTrashData = document.getElementById('import-trash-data').checked;
+                            
+                            // バージョンチェック（将来的に互換性の問題を処理できるように）
+                            const systemVersion = systemData.version || "1.0.0";
+                            console.log('インポートするシステムデータのバージョン: ' + systemVersion);
+                            
+                            if (importMode === 'replace') {
+                                // 既存データを置き換え
+                                if (confirm('既存のすべてのデータを置き換えます。この操作は元に戻せません。続行しますか？')) {
+                                    products = systemData.products || [];
+                                    if (importTrashData) {
+                                        trashProducts = systemData.trashProducts || [];
+                                    }
+                                } else {
+                                    return;
+                                }
+                            } else if (importMode === 'merge') {
+                                // マージ（上書き）
+                                if (systemData.products) {
+                                    const mergedProducts = [...products];
+                                    systemData.products.forEach(importProduct => {
+                                        const existingIndex = mergedProducts.findIndex(p => p.id === importProduct.id);
+                                        if (existingIndex !== -1) {
+                                            mergedProducts[existingIndex] = importProduct;
+                                        } else {
+                                            mergedProducts.push(importProduct);
+                                        }
+                                    });
+                                    products = mergedProducts;
+                                }
+                                
+                                if (importTrashData && systemData.trashProducts) {
+                                    const mergedTrash = [...trashProducts];
+                                    systemData.trashProducts.forEach(importTrash => {
+                                        const existingIndex = mergedTrash.findIndex(p => p.id === importTrash.id);
+                                        if (existingIndex !== -1) {
+                                            mergedTrash[existingIndex] = importTrash;
+                                        } else {
+                                            mergedTrash.push(importTrash);
+                                        }
+                                    });
+                                    trashProducts = mergedTrash;
+                                }
+                            } else if (importMode === 'merge-keep') {
+                                // マージ（既存優先）
+                                if (systemData.products) {
+                                    const mergedProducts = [...products];
+                                    systemData.products.forEach(importProduct => {
+                                        const existingIndex = mergedProducts.findIndex(p => p.id === importProduct.id);
+                                        if (existingIndex === -1) {
+                                            mergedProducts.push(importProduct);
+                                        }
+                                    });
+                                    products = mergedProducts;
+                                }
+                                
+                                if (importTrashData && systemData.trashProducts) {
+                                    const mergedTrash = [...trashProducts];
+                                    systemData.trashProducts.forEach(importTrash => {
+                                        const existingIndex = mergedTrash.findIndex(p => p.id === importTrash.id);
+                                        if (existingIndex === -1) {
+                                            mergedTrash.push(importTrash);
+                                        }
+                                    });
+                                    trashProducts = mergedTrash;
+                                }
+                            }
+                            
+                            saveAllData();
+                            currentProductId = null;
+                            currentVersion = 'default';
+                            renderProductList();
+                            updateUIState();
+                            
+                            importModal.style.display = 'none';
+                            showNotification('システムデータをインポートしました');
+                        } catch (e) {
+                            console.error('データの解析に失敗しました:', e);
+                            alert('システムデータの解析に失敗しました。正しいJSON形式であることを確認してください。');
+                        }
+                    });
+                }
+                
+                // インポート処理
+                function processImport(productId, productName, version, html) {
+                    // 文字化け対策
+                    html = ensureUTF8(html);
+                    
+                    let productIndex = products.findIndex(p => p.id === productId);
+                    let isNewProduct = false;
+                    
+                    if (productIndex === -1) {
+                        // 新しい商品を追加
+                        products.push({
+                            id: productId,
+                            name: productName,
+                            html: '',
+                            createdAt: new Date().toISOString()
+                        });
+                        productIndex = products.length - 1;
+                        isNewProduct = true;
+                    }
+                    
+                    if (version === 'default') {
+                        products[productIndex].html = html;
+                    } else if (version === 'new') {
+                        const newVersionName = document.getElementById('new-version-name').value.trim();
+                        if (!newVersionName) {
+                            alert('新規バージョン名を入力してください');
+                            return;
+                        }
+                        
+                        if (!products[productIndex].versions) {
+                            products[productIndex].versions = {};
+                        }
+                        
+                        products[productIndex].versions[newVersionName] = html;
+                        version = newVersionName;
+                    } else {
+                        if (!products[productIndex].versions) {
+                            products[productIndex].versions = {};
+                        }
+                        
+                        products[productIndex].versions[version] = html;
+                    }
+                    
+                    saveAllData();
+                    
+                    currentProductId = productId;
+                    currentVersion = version;
+                    renderProductList();
+                    loadCurrentProductHTML();
+                    updateUIState();
+                    
+                    importModal.style.display = 'none';
+                    showNotification(isNewProduct ? '新しい商品をインポートしました' : 'HTMLコードをインポートしました');
+                }
+                
+                // エクスポートモーダルを表示
+                function showExportModal() {
+                    document.getElementById('export-type').value = 'current';
+                    document.getElementById('export-format-container').style.display = 'block';
+                    
+                    // 選択肢の再構築
+                    const formatSelect = document.getElementById('export-format');
+                    while (formatSelect.firstChild) {
+                        formatSelect.removeChild(formatSelect.firstChild);
+                    }
+                    
+                    const htmlOption = document.createElement('option');
+                    htmlOption.value = 'html';
+                    htmlOption.textContent = 'HTML';
+                    formatSelect.appendChild(htmlOption);
+                    
+                    const jsonOption = document.createElement('option');
+                    jsonOption.value = 'json';
+                    jsonOption.textContent = 'JSON';
+                    formatSelect.appendChild(jsonOption);
+                    
+                    formatSelect.value = 'html';
+                    
+                    document.getElementById('export-result-container').style.display = 'none';
+                    document.getElementById('export-result').value = '';
+                    document.getElementById('copy-export-btn').style.display = 'none';
+                    document.getElementById('download-export-btn').style.display = 'none';
+                    document.getElementById('confirm-export-btn').style.display = '';
+                    
+                    exportModal.style.display = 'flex';
+                }
+                
+                // HTML をエクスポート
+                function exportHTML() {
+                    const exportType = document.getElementById('export-type').value;
+                    const exportFormat = document.getElementById('export-format').value;
+                    const exportResult = document.getElementById('export-result');
+                    
+                    if (exportType === 'current') {
+                        if (!currentProductId) {
+                            alert('エクスポートする商品を選択してください');
+                            return;
+                        }
+                        
+                        const product = products.find(p => p.id === currentProductId);
+                        if (!product) {
+                            return;
+                        }
+                        
+                        if (exportFormat === 'html') {
+                            // 現在のバージョンのHTMLをエクスポート
+                            if (currentVersion === 'default') {
+                                exportResult.value = product.html || '';
+                            } else {
+                                if (product.versions && product.versions[currentVersion]) {
+                                    exportResult.value = product.versions[currentVersion];
+                                } else {
+                                    exportResult.value = '';
+                                }
+                            }
+                        } else {
+                            // 現在の商品のJSONをエクスポート
+                            exportResult.value = JSON.stringify(product, null, 2);
+                        }
+                    } else if (exportType === 'all') {
+                        // すべての商品のJSONをエクスポート
+                        if (exportFormat === 'json') {
+                            exportResult.value = JSON.stringify(products, null, 2);
+                        } else {
+                            alert('すべての商品データはJSON形式でのみエクスポートできます');
+                            return;
+                        }
+                    } else if (exportType === 'system') {
+                        // システム全体のデータをエクスポート
+                        if (exportFormat === 'json') {
+                            const systemData = {
+                                version: "1.0.0", // システムのバージョン
+                                exportDate: new Date().toISOString(),
+                                products: products,
+                                trashProducts: trashProducts
+                            };
+                            exportResult.value = JSON.stringify(systemData, null, 2);
+                        } else {
+                            alert('システムデータはJSON形式でのみエクスポートできます');
+                            return;
+                        }
+                    }
+                    
+                    document.getElementById('export-result-container').style.display = 'block';
+                    document.getElementById('copy-export-btn').style.display = '';
+                    document.getElementById('download-export-btn').style.display = '';
+                    document.getElementById('confirm-export-btn').style.display = 'none';
+                }
+                
+                // エクスポート結果をコピー
+                function copyExportResult() {
+                    const exportResult = document.getElementById('export-result');
+                    exportResult.select();
+                    document.execCommand('copy');
+                    showNotification('クリップボードにコピーしました');
+                }
+                
+                // エクスポート結果をダウンロード
+                function downloadExportResult() {
+                    const exportType = document.getElementById('export-type').value;
+                    const exportFormat = document.getElementById('export-format').value;
+                    const exportResult = document.getElementById('export-result').value;
+                    
+                    let filename;
+                    let content = exportResult;
+                    let type;
+                    
+                    if (exportFormat === 'html') {
+                        filename = 'rms_html_' + currentProductId + '_' + currentVersion + '.html';
+                        type = 'text/html; charset=UTF-8';
+                    } else {
+                        if (exportType === 'current') {
+                            filename = 'rms_product_' + currentProductId + '.json';
+                        } else if (exportType === 'all') {
+                            filename = 'rms_all_products.json';
+                        } else if (exportType === 'system') {
+                            filename = 'rms_system_backup_' + new Date().toISOString().slice(0, 10) + '.json';
+                        }
+                        type = 'application/json; charset=UTF-8';
+                    }
+                    
+                    const blob = new Blob([content], { type: type });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    showNotification('ファイルをダウンロードしました');
+                }
+                
+                // UI状態の更新
+                function updateUIState() {
+                    const hasCurrentProduct = !!currentProductId;
+                    
+                    // ゴミ箱モードとノーマルモードで表示するボタンを切り替え
+                    if (showingTrash) {
+                        document.getElementById('save-btn').style.display = 'none';
+                        document.getElementById('delete-btn').style.display = 'none';
+                        document.getElementById('restore-btn').style.display = '';
+                        document.getElementById('permanent-delete-btn').style.display = '';
+                        document.getElementById('add-version-btn').style.display = 'none';
+                        document.getElementById('delete-version-btn').style.display = 'none';
+                    } else {
+                        document.getElementById('save-btn').style.display = '';
+                        document.getElementById('delete-btn').style.display = '';
+                        document.getElementById('restore-btn').style.display = 'none';
+                        document.getElementById('permanent-delete-btn').style.display = 'none';
+                        document.getElementById('add-version-btn').style.display = '';
+                        document.getElementById('delete-version-btn').style.display = '';
+                    }
+                    
+                    // ボタン状態の更新
+                    codeMirror.setOption('readOnly', !hasCurrentProduct || showingTrash);
+                    versionSelect.disabled = !hasCurrentProduct || showingTrash;
+                    saveBtn.disabled = !hasCurrentProduct || !isEdited || showingTrash;
+                    deleteBtn.disabled = !hasCurrentProduct;
+                    document.getElementById('restore-btn').disabled = !hasCurrentProduct;
+                    document.getElementById('permanent-delete-btn').disabled = !hasCurrentProduct;
+                    document.getElementById('add-version-btn').disabled = !hasCurrentProduct || showingTrash;
+                    document.getElementById('delete-version-btn').disabled = !hasCurrentProduct || currentVersion === 'default' || showingTrash;
+                    refreshPreviewBtn.disabled = !hasCurrentProduct;
+                    
+                    const titleElement = document.querySelector('.sidebar-header > div:first-child');
+                    titleElement.textContent = showingTrash ? 'ゴミ箱' : '商品一覧';
+                    
+                    statusMessage.textContent = isEdited ? '変更あり' : '変更なし';
+                }
+                
+                // 通知を表示
+                function showNotification(message, isError = false) {
+                    notification.textContent = message;
+                    notification.style.backgroundColor = isError ? '#d83b01' : '#107c10';
+                    notification.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        notification.style.display = 'none';
+                    }, 3000);
+                }
+                
+                // 初期UI状態の設定
+                updateUIState();
+            });
+        })();
+    </script>
+</body>
+</html>

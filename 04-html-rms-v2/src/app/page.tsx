@@ -13,7 +13,10 @@ import {
   Code,
   Smartphone,
   Monitor,
-  Import
+  Import,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw
 } from 'lucide-react';
 
 // Monaco Editor を動的インポート（SSR対策）
@@ -50,12 +53,18 @@ export default function HTMLManagerV2() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editingName, setEditingName] = useState('');
+  const [isEditingId, setIsEditingId] = useState(false);
+  const [editingId, setEditingId] = useState('');
   const [previewDevice, setPreviewDevice] = useState<string>('mobile');
   const [showPreview, setShowPreview] = useState(true);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
+  const [previewWidth, setPreviewWidth] = useState(50); // プレビューエリアの幅（%）
+  const [isResizing, setIsResizing] = useState(false);
+  const [editorFontSize, setEditorFontSize] = useState(14); // エディタのフォントサイズ
+  const [previewZoom, setPreviewZoom] = useState(100); // プレビューのズーム倍率（%）
 
   // ローカルストレージからデータを読み込み
   useEffect(() => {
@@ -79,11 +88,16 @@ export default function HTMLManagerV2() {
     }
   }, []);
 
-  // 商品一覧をフィルタリング
-  const filteredProducts = products.filter(product =>
-    product.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // 商品一覧をフィルタリングしてIDの昇順でソート
+  const filteredProducts = products
+    .filter(product =>
+      product.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      // IDを文字列として比較（自然な並び順のため）
+      return a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' });
+    });
 
   // 新しい商品を追加
   const addNewProduct = () => {
@@ -109,6 +123,21 @@ export default function HTMLManagerV2() {
     setCurrentVersion('default');
     setHtmlCode(product.html || '');
     setHasUnsavedChanges(false);
+    
+    // エディタとプレビューエリアを最上部にスクロール
+    setTimeout(() => {
+      // Monaco Editorのスクロールをリセット
+      const editorContainer = document.querySelector('.monaco-editor .monaco-scrollable-element');
+      if (editorContainer) {
+        editorContainer.scrollTop = 0;
+      }
+      
+      // プレビューエリアのスクロールをリセット
+      const previewContainer = document.querySelector('.preview-content')?.closest('.flex-1.overflow-y-auto');
+      if (previewContainer) {
+        previewContainer.scrollTop = 0;
+      }
+    }, 100);
   };
 
   // バージョン変更
@@ -126,6 +155,19 @@ export default function HTMLManagerV2() {
     
     setHtmlCode(code);
     setHasUnsavedChanges(false);
+    
+    // バージョン変更時もスクロールをリセット
+    setTimeout(() => {
+      const editorContainer = document.querySelector('.monaco-editor .monaco-scrollable-element');
+      if (editorContainer) {
+        editorContainer.scrollTop = 0;
+      }
+      
+      const previewContainer = document.querySelector('.preview-content')?.closest('.flex-1.overflow-y-auto');
+      if (previewContainer) {
+        previewContainer.scrollTop = 0;
+      }
+    }, 100);
   };
 
   // HTMLコードを保存
@@ -181,6 +223,34 @@ export default function HTMLManagerV2() {
       setCurrentProduct({ ...currentProduct, name: newName });
     }
     saveToLocalStorage(updatedProducts);
+  };
+
+  // 商品IDを編集
+  const handleIdEdit = (oldId: string, newId: string) => {
+    // 新しいIDが既に存在するかチェック
+    if (newId !== oldId && products.some(product => product.id === newId)) {
+      showNotification('このIDは既に存在します', 'error');
+      return;
+    }
+
+    // IDが空の場合はエラー
+    if (!newId.trim()) {
+      showNotification('IDは空にできません', 'error');
+      return;
+    }
+
+    const updatedProducts = products.map(product =>
+      product.id === oldId 
+        ? { ...product, id: newId, updatedAt: new Date().toISOString() }
+        : product
+    );
+    
+    setProducts(updatedProducts);
+    if (currentProduct && currentProduct.id === oldId) {
+      setCurrentProduct({ ...currentProduct, id: newId });
+    }
+    saveToLocalStorage(updatedProducts);
+    showNotification('IDが更新されました', 'success');
   };
 
   // 商品を削除
@@ -639,6 +709,156 @@ export default function HTMLManagerV2() {
   // プレビューデバイスの取得
   const currentPreviewDevice = previewDevices.find(d => d.id === previewDevice) || previewDevices[0];
 
+  // プレビューサイズの自動計算
+  const calculatePreviewSize = () => {
+    if (!showPreview) return { width: 375, height: 600, scale: 1 };
+    
+    const availableWidth = (window.innerWidth * (previewWidth / 100)) - 100; // パディング考慮
+    const maxWidth = Math.min(availableWidth - 60, 500); // 最大500px
+    const minWidth = 280; // 最小280px
+    
+    const targetWidth = Math.max(minWidth, Math.min(maxWidth, 375));
+    const scale = targetWidth / 375;
+    const scaledHeight = 600 * scale;
+    
+    return { width: targetWidth, height: scaledHeight, scale };
+  };
+
+  const previewSize = calculatePreviewSize();
+
+  // フォントサイズ調整関数
+  const increaseFontSize = () => {
+    setEditorFontSize(prev => Math.min(prev + 2, 24));
+  };
+
+  const decreaseFontSize = () => {
+    setEditorFontSize(prev => Math.max(prev - 2, 10));
+  };
+
+  const resetFontSize = () => {
+    setEditorFontSize(14);
+  };
+
+  // プレビューズーム調整関数
+  const increasePreviewZoom = () => {
+    setPreviewZoom(prev => Math.min(prev + 10, 200));
+  };
+
+  const decreasePreviewZoom = () => {
+    setPreviewZoom(prev => Math.max(prev - 10, 50));
+  };
+
+  const resetPreviewZoom = () => {
+    setPreviewZoom(100);
+  };
+
+  // HTMLコードの自動整形
+  const formatHtmlCode = () => {
+    if (!htmlCode) return;
+    
+    try {
+      // 簡単なHTML整形ロジック
+      const formatted = htmlCode
+        .replace(/></g, '>\n<')
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .map((line, index, array) => {
+          let indent = 0;
+          
+          // 前の行を確認してインデントレベルを決定
+          for (let i = 0; i < index; i++) {
+            const prevLine = array[i];
+            if (prevLine.includes('<') && !prevLine.includes('</') && !prevLine.includes('/>')) {
+              indent++;
+            }
+            if (prevLine.includes('</')) {
+              indent--;
+            }
+          }
+          
+          // 現在の行が終了タグの場合、インデントを1つ減らす
+          if (line.includes('</')) {
+            indent--;
+          }
+          
+          return '  '.repeat(Math.max(0, indent)) + line;
+        })
+        .join('\n');
+      
+      setHtmlCode(formatted);
+      showNotification('HTMLコードを整形しました', 'success');
+    } catch (error) {
+      showNotification('整形に失敗しました', 'error');
+    }
+  };
+
+  // プレビュー表示切り替え時にMonaco Editorのレイアウトを再計算
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Monaco Editorのレイアウトを再計算
+      window.dispatchEvent(new Event('resize'));
+    }, 350); // アニメーション完了後に実行
+
+    return () => clearTimeout(timer);
+  }, [showPreview]);
+
+  // プレビュー幅変更時にプレビューサイズを再計算
+  useEffect(() => {
+    if (showPreview) {
+      // プレビューサイズ再計算のためにコンポーネントを再レンダリング
+      const timer = setTimeout(() => {
+        // 強制的に再レンダリングをトリガー
+        setPreviewWidth(prev => prev);
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [previewWidth, showPreview]);
+
+  // ドラッグリサイズ機能
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      
+      const container = document.querySelector('.flex-1.flex');
+      if (!container) return;
+      
+      const containerRect = container.getBoundingClientRect();
+      const newPreviewWidth = Math.max(20, Math.min(80, ((containerRect.right - e.clientX) / containerRect.width) * 100));
+      setPreviewWidth(newPreviewWidth);
+    };
+
+    const handleMouseUp = () => {
+      if (isResizing) {
+        setIsResizing(false);
+        // リサイズ完了後にMonaco Editorのレイアウトを再計算
+        setTimeout(() => {
+          window.dispatchEvent(new Event('resize'));
+        }, 100);
+      }
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing]);
+
   // キーボードショートカット
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -673,92 +893,107 @@ export default function HTMLManagerV2() {
   }, [currentProduct, htmlCode, showPreview, saveHtmlCode, addNewProduct, copyHtmlCode]);
 
   return (
-    <div className="h-screen bg-gray-100 flex flex-col">
+    <div className="h-screen bg-neutral-50 flex flex-col">
       {/* ヘッダー */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <h1 className="text-2xl font-bold text-gray-900">HTML管理システム v2</h1>
-          <div className="flex flex-col">
-            <div className="text-sm text-gray-500">
-              {currentProduct ? `${currentProduct.name} - ${currentVersion}` : '商品を選択してください'}
+      <header className="bg-white border-b border-neutral-200">
+        <div className="px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center space-x-8">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-neutral-900 rounded-lg flex items-center justify-center">
+                <span className="text-white font-medium text-sm">H</span>
+              </div>
+              <div>
+                <h1 className="text-lg font-medium text-neutral-900">
+                  HTML管理システム
+                </h1>
+              </div>
             </div>
-            <div className="text-xs text-gray-400">
-              ショートカット: Ctrl+S(保存) | Ctrl+N(新規) | Ctrl+D(プレビュー) | Ctrl+K(コピー)
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={saveHtmlCode}
-            disabled={!currentProduct || isSaving}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
-              hasUnsavedChanges 
-                ? 'bg-orange-600 text-white hover:bg-orange-700 animate-pulse' 
-                : 'bg-blue-600 text-white hover:bg-blue-700'
-            } ${isSaving ? 'bg-green-600' : ''}`}
-          >
-            {isSaving ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-            ) : (
-              <Save size={16} />
+            
+            {currentProduct && (
+              <div className="flex items-center space-x-2 text-sm text-neutral-600">
+                <span>{currentProduct.name}</span>
+                {currentVersion !== 'default' && (
+                  <>
+                    <span className="text-neutral-400">·</span>
+                    <span className="text-neutral-500">{currentVersion}</span>
+                  </>
+                )}
+              </div>
             )}
-            <span>
-              {isSaving ? '保存中...' : hasUnsavedChanges ? '保存 (未保存)' : '保存'}
-            </span>
-          </button>
-          
-          <button
-            onClick={copyHtmlCode}
-            disabled={!currentProduct}
-            className="flex items-center space-x-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Copy size={16} />
-            <span>コピー</span>
-          </button>
+          </div>
+        
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={saveHtmlCode}
+              disabled={!currentProduct || isSaving}
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                hasUnsavedChanges 
+                  ? 'bg-orange-500 text-white hover:bg-orange-600' 
+                  : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              } ${isSaving ? 'bg-green-600' : ''}`}
+            >
+              {isSaving ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+              ) : (
+                <Save size={14} />
+              )}
+              <span className="mobile-hidden">
+                {isSaving ? '保存中' : hasUnsavedChanges ? '保存' : '保存'}
+              </span>
+            </button>
+            
+            <button
+              onClick={copyHtmlCode}
+              disabled={!currentProduct}
+              className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Copy size={14} />
+              <span className="mobile-hidden">コピー</span>
+            </button>
 
-          <button
-            onClick={() => setShowPreview(!showPreview)}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-              showPreview 
-                ? 'bg-green-600 text-white hover:bg-green-700' 
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            <Eye size={16} />
-            <span>{showPreview ? 'スマホプレビュー表示中' : 'スマホプレビュー非表示'}</span>
-          </button>
+            <button
+              onClick={() => setShowPreview(!showPreview)}
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                showPreview 
+                  ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                  : 'text-neutral-700 hover:bg-neutral-100'
+              }`}
+            >
+              <Eye size={14} />
+              <span className="mobile-hidden">{showPreview ? 'プレビュー' : 'プレビュー'}</span>
+            </button>
 
-          <button
-            onClick={importFromJsonFile}
-            className="flex items-center space-x-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
-            title="JSONファイル(rms_all_products.json等)からデータをインポート"
-          >
-            <Import size={16} />
-            <span>JSON移行</span>
-          </button>
+            <button
+              onClick={importFromJsonFile}
+              className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-100 transition-colors"
+              title="JSONファイル(rms_all_products.json等)からデータをインポート"
+            >
+              <Import size={14} />
+              <span className="mobile-hidden">移行</span>
+            </button>
+          </div>
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
         {/* サイドバー */}
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+        <div className="w-80 bg-white border-r border-neutral-200 flex flex-col">
           {/* 検索とコントロール */}
-          <div className="p-4 border-b border-gray-200">
+          <div className="p-6 border-b border-neutral-200">
             <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400" size={16} />
               <input
                 type="text"
-                placeholder="商品IDまたは名前で検索..."
+                placeholder="検索..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent bg-white text-neutral-700 placeholder-neutral-400 transition-all text-sm"
               />
             </div>
             
             <button
               onClick={addNewProduct}
-              className="w-full flex items-center justify-center space-x-2 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="w-full flex items-center justify-center space-x-2 bg-neutral-900 text-white py-2.5 rounded-lg hover:bg-neutral-800 transition-colors text-sm font-medium"
             >
               <Plus size={16} />
               <span>新しい商品を追加</span>
@@ -768,16 +1003,24 @@ export default function HTMLManagerV2() {
           {/* 商品一覧 */}
           <div className="flex-1 overflow-y-auto">
             {filteredProducts.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">
-                {searchTerm ? '検索結果がありません' : '商品がありません'}
+              <div className="p-6 text-center">
+                <div className="w-12 h-12 mx-auto mb-3 bg-neutral-100 rounded-full flex items-center justify-center">
+                  <Search size={20} className="text-neutral-400" />
+                </div>
+                <p className="text-sm font-medium text-neutral-700">{searchTerm ? '検索結果がありません' : '商品がありません'}</p>
+                <p className="text-xs text-neutral-500 mt-1">
+                  {searchTerm ? '別のキーワードで検索してみてください' : '新しい商品を追加して始めましょう'}
+                </p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-100">
+              <div className="p-4 space-y-1">
                 {filteredProducts.map((product) => (
                   <div
                     key={product.id}
-                    className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
-                      currentProduct?.id === product.id ? 'bg-blue-50 border-r-4 border-blue-500' : ''
+                    className={`group p-3 cursor-pointer rounded-lg transition-all duration-150 hover:bg-neutral-50 ${
+                      currentProduct?.id === product.id 
+                        ? 'bg-neutral-100 border-l-2 border-neutral-900' 
+                        : 'hover:border-l-2 hover:border-neutral-300'
                     }`}
                     onClick={() => selectProduct(product)}
                   >
@@ -801,12 +1044,13 @@ export default function HTMLManagerV2() {
                                 setEditingName('');
                               }
                             }}
-                            className="w-full px-2 py-1 text-sm font-medium border border-blue-500 rounded"
+                            className="w-full px-3 py-2 text-sm font-medium border border-neutral-300 rounded-lg bg-white text-neutral-900 focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
                             autoFocus
                           />
                         ) : (
                           <h3
-                            className="text-sm font-medium text-gray-900 truncate cursor-pointer"
+                            className="text-sm font-semibold text-gray-900 truncate cursor-pointer"
+                            style={{ color: '#111827' }}
                             onDoubleClick={() => {
                               setIsEditing(true);
                               setEditingName(product.name);
@@ -815,15 +1059,52 @@ export default function HTMLManagerV2() {
                             {product.name}
                           </h3>
                         )}
-                        <p className="text-xs text-gray-500 mt-1">ID: {product.id}</p>
+                        {isEditingId && currentProduct?.id === product.id ? (
+                          <div className="mt-1">
+                            <input
+                              type="text"
+                              value={editingId}
+                              onChange={(e) => setEditingId(e.target.value)}
+                              onBlur={() => {
+                                handleIdEdit(product.id, editingId);
+                                setIsEditingId(false);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleIdEdit(product.id, editingId);
+                                  setIsEditingId(false);
+                                } else if (e.key === 'Escape') {
+                                  setIsEditingId(false);
+                                  setEditingId('');
+                                }
+                              }}
+                              className="w-full px-2 py-1 text-xs font-mono border border-neutral-300 rounded bg-white text-neutral-900 focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                              placeholder="商品ID"
+                              autoFocus
+                            />
+                          </div>
+                        ) : (
+                          <p 
+                            className="text-xs text-gray-700 mt-1 font-mono cursor-pointer hover:text-indigo-600 transition-colors" 
+                            style={{ color: '#374151' }}
+                            onDoubleClick={() => {
+                              setIsEditingId(true);
+                              setEditingId(product.id);
+                              setCurrentProduct(product);
+                            }}
+                            title="ダブルクリックでIDを編集"
+                          >
+                            ID: {product.id}
+                          </p>
+                        )}
                         {product.updatedAt && (
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-xs text-gray-600 mt-1" style={{ color: '#4b5563' }}>
                             更新: {new Date(product.updatedAt).toLocaleString()}
                           </p>
                         )}
                       </div>
                       
-                      <div className="flex items-center space-x-1 ml-2">
+                      <div className="flex items-center space-x-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -831,20 +1112,32 @@ export default function HTMLManagerV2() {
                             setEditingName(product.name);
                             setCurrentProduct(product);
                           }}
-                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                          className="p-1.5 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded transition-colors"
                           title="名前を編集"
                         >
-                          <Edit3 size={14} />
+                          <Edit3 size={12} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsEditingId(true);
+                            setEditingId(product.id);
+                            setCurrentProduct(product);
+                          }}
+                          className="p-1.5 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded transition-colors"
+                          title="IDを編集"
+                        >
+                          <span className="text-xs font-mono">ID</span>
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             deleteProduct(product.id);
                           }}
-                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                          className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                           title="削除"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={12} />
                         </button>
                       </div>
                     </div>
@@ -856,49 +1149,87 @@ export default function HTMLManagerV2() {
         </div>
 
         {/* メインコンテンツ */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex">
           {currentProduct ? (
             <div className="flex-1 flex">
               {/* エディタ */}
-              <div className="flex-1 flex flex-col bg-white border-r border-gray-200">
-                <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <Code size={16} className="text-gray-500" />
-                      <span className="text-sm font-medium text-gray-700">HTMLエディタ</span>
+              <div 
+                className="bg-white border-r border-neutral-200 flex flex-col"
+                style={{ 
+                  width: showPreview ? `${100 - previewWidth}%` : '100%',
+                  transition: isResizing ? 'none' : 'width 0.3s ease'
+                }}
+              >
+                <div className="bg-white border-b border-neutral-200">
+                  {/* メインツールバー */}
+                  <div className="flex items-center justify-between px-6 py-3">
+                    <div className="flex items-center space-x-6">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-sm font-medium text-neutral-700">HTML</span>
+                      </div>
+                      
+                      <div className="flex items-center space-x-3">
+                        <select
+                          value={currentVersion}
+                          onChange={(e) => handleVersionChange(e.target.value)}
+                          className="text-sm border-0 bg-transparent text-neutral-600 focus:outline-none focus:ring-0 font-medium"
+                        >
+                          <option value="default">標準</option>
+                          {currentProduct?.versions && Object.keys(currentProduct.versions).map(version => (
+                            <option key={version} value={version}>{version}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
-                    
-                    {/* バージョン選択 */}
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs text-gray-500">バージョン:</span>
-                      <select
-                        value={currentVersion}
-                        onChange={(e) => handleVersionChange(e.target.value)}
-                        className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+
+                    <div className="flex items-center space-x-4">
+                      {/* フォントサイズ調整 - ミニマル */}
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={decreaseFontSize}
+                          className="w-6 h-6 flex items-center justify-center text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded transition-colors"
+                          title="小"
+                        >
+                          <span className="text-xs">A</span>
+                        </button>
+                        <span className="text-xs text-neutral-400 font-mono w-6 text-center">{editorFontSize}</span>
+                        <button
+                          onClick={increaseFontSize}
+                          className="w-6 h-6 flex items-center justify-center text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded transition-colors"
+                          title="大"
+                        >
+                          <span className="text-sm font-semibold">A</span>
+                        </button>
+                      </div>
+
+                      {/* 整形ボタン */}
+                      <button
+                        onClick={formatHtmlCode}
+                        className="w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded transition-colors"
+                        title="HTMLを整形"
                       >
-                        <option value="default">標準</option>
-                        {currentProduct?.versions && Object.keys(currentProduct.versions).map(version => (
-                          <option key={version} value={version}>{version}</option>
-                        ))}
-                      </select>
+                        <span className="text-xs font-mono">▽</span>
+                      </button>
+
+                      {/* ステータス */}
+                      <div className="flex items-center space-x-3 text-xs text-neutral-500">
+                        <span>{htmlCode.length.toLocaleString()}</span>
+                        {hasUnsavedChanges && (
+                          <div className="flex items-center space-x-1 text-amber-600">
+                            <div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+                            <span>未保存</span>
+                          </div>
+                        )}
+                        {lastSavedTime && !hasUnsavedChanges && (
+                          <span className="text-green-600">保存済み</span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex flex-col items-end text-xs text-gray-500">
-                    <div>{htmlCode.length} 文字</div>
-                    {lastSavedTime && (
-                      <div className="text-green-600">
-                        最終保存: {lastSavedTime.toLocaleTimeString()}
-                      </div>
-                    )}
-                    {hasUnsavedChanges && (
-                      <div className="text-orange-600 font-medium">
-                        未保存の変更あり
-                      </div>
-                    )}
                   </div>
                 </div>
                 
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1">
                   <MonacoEditor
                     height="100%"
                     defaultLanguage="html"
@@ -910,7 +1241,7 @@ export default function HTMLManagerV2() {
                     options={{
                       minimap: { enabled: false },
                       scrollBeyondLastLine: false,
-                      fontSize: 14,
+                      fontSize: editorFontSize,
                       lineNumbers: 'on',
                       roundedSelection: false,
                       scrollbar: {
@@ -929,60 +1260,118 @@ export default function HTMLManagerV2() {
                 </div>
               </div>
 
-              {/* スマホプレビュー */}
+              {/* リサイズハンドル */}
               {showPreview && (
-                <div className="flex-1 flex flex-col bg-white">
-                  <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
-                    <div className="flex items-center space-x-2">
-                      <Smartphone size={16} className="text-gray-500" />
-                      <span className="text-sm font-medium text-gray-700">スマホプレビュー</span>
-                    </div>
-                    
-                    <div className="text-xs text-gray-500">
-                      375px × 自動
-                    </div>
+                <div 
+                  className="w-1 bg-slate-300 hover:bg-indigo-400 cursor-col-resize transition-colors duration-200 relative group"
+                  onMouseDown={handleMouseDown}
+                >
+                  <div className="absolute inset-y-0 -left-1 -right-1 flex items-center justify-center">
+                    <div className="w-1 h-8 bg-slate-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
                   </div>
-                  
-                  <div className="flex-1 overflow-auto bg-gray-200 p-6" style={{ minHeight: 0 }}>
-                    <div className="mx-auto relative">
-                      {/* スマホフレーム */}
-                      <div 
-                        className="bg-black rounded-3xl p-3 shadow-2xl"
-                        style={{ width: '395px' }}
-                      >
-                        {/* スマホ画面 */}
-                        <div 
-                          className="bg-white rounded-2xl overflow-auto"
-                          style={{ 
-                            width: '375px',
-                            height: '600px',
-                            maxHeight: '80vh'
-                          }}
-                        >
-                          <div
-                            dangerouslySetInnerHTML={{ __html: debouncedHtmlCode }}
-                            style={{
-                              width: '100%',
-                              fontSize: '14px',
-                              lineHeight: '1.4'
-                            }}
-                          />
+                </div>
+              )}
+
+              {/* プレビュー */}
+              {showPreview && (
+                <div 
+                  className="bg-white flex flex-col"
+                  style={{ 
+                    width: `${previewWidth}%`,
+                    transition: isResizing ? 'none' : 'width 0.3s ease'
+                  }}
+                >
+                  <div className="bg-white border-b border-neutral-200">
+                    <div className="flex items-center justify-between px-6 py-3">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span className="text-sm font-medium text-neutral-700">プレビュー</span>
+                      </div>
+                      
+                      <div className="flex items-center space-x-3">
+                        {/* ズーム調整 */}
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={decreasePreviewZoom}
+                            className="w-6 h-6 flex items-center justify-center text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded transition-colors"
+                            title="縮小"
+                          >
+                            <span className="text-xs">-</span>
+                          </button>
+                          <span className="text-xs text-neutral-400 font-mono w-10 text-center">{previewZoom}%</span>
+                          <button
+                            onClick={increasePreviewZoom}
+                            className="w-6 h-6 flex items-center justify-center text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded transition-colors"
+                            title="拡大"
+                          >
+                            <span className="text-xs">+</span>
+                          </button>
+                        </div>
+                        
+                        <div className="text-xs text-neutral-500">
+                          リアルタイムプレビュー
                         </div>
                       </div>
                     </div>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto">
+                    <style>{`
+                      /* プレビュー用の基本スタイル */
+                      .preview-content table {
+                        border-collapse: collapse;
+                        width: 100%;
+                        margin: 16px 0;
+                      }
+                      .preview-content table, .preview-content th, .preview-content td {
+                        border: 1px solid #ddd;
+                      }
+                      .preview-content th, .preview-content td {
+                        padding: 12px;
+                        text-align: left;
+                      }
+                      .preview-content th {
+                        background-color: #f8f9fa;
+                        font-weight: 600;
+                      }
+                      .preview-content tr:nth-child(even) {
+                        background-color: #f9f9f9;
+                      }
+                      .preview-content * {
+                        box-sizing: border-box;
+                      }
+                      .preview-content {
+                        width: 100%;
+                        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+                        font-size: 14px;
+                        line-height: 1.6;
+                        color: #333;
+                      }
+                    `}</style>
+                    <div
+                      className="preview-content p-6"
+                      style={{
+                        transform: `scale(${previewZoom / 100})`,
+                        transformOrigin: 'top left',
+                        width: `${10000 / previewZoom}%`,
+                      }}
+                      dangerouslySetInnerHTML={{ __html: debouncedHtmlCode }}
+                    />
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center bg-gray-50">
-              <div className="text-center">
-                <Code size={48} className="mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">商品を選択してください</h3>
-                <p className="text-gray-600 mb-4">左のサイドバーから商品を選択するか、新しい商品を追加してください</p>
+            <div className="flex-1 flex items-center justify-center bg-white">
+              <div className="text-center p-8">
+                <div className="w-16 h-16 mx-auto mb-4 bg-neutral-100 rounded-full flex items-center justify-center">
+                  <Code size={24} className="text-neutral-400" />
+                </div>
+                <h3 className="text-lg font-medium text-neutral-900 mb-2">商品を選択してください</h3>
+                <p className="text-neutral-600 mb-6 max-w-sm mx-auto text-sm">左のサイドバーから商品を選択するか、新しい商品を追加してHTML編集を開始しましょう</p>
                 <button
                   onClick={addNewProduct}
-                  className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors mx-auto"
+                  className="flex items-center space-x-2 bg-neutral-900 text-white px-4 py-2.5 rounded-lg hover:bg-neutral-800 transition-colors mx-auto text-sm font-medium"
                 >
                   <Plus size={16} />
                   <span>新しい商品を追加</span>
@@ -995,10 +1384,17 @@ export default function HTMLManagerV2() {
 
       {/* 通知 */}
       {notification && (
-        <div className={`fixed bottom-4 right-4 px-6 py-3 rounded-lg text-white font-medium shadow-lg z-50 ${
-          notification.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+        <div className={`fixed bottom-6 right-6 px-4 py-3 rounded-lg text-sm font-medium shadow-lg z-50 backdrop-blur-sm animate-in slide-in-from-bottom-2 duration-300 max-w-sm ${
+          notification.type === 'success' 
+            ? 'bg-green-500 text-white' 
+            : 'bg-red-500 text-white'
         }`}>
-          {notification.message}
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 flex items-center justify-center">
+              {notification.type === 'success' ? '✓' : '!'}
+            </div>
+            <span>{notification.message}</span>
+          </div>
         </div>
       )}
     </div>
